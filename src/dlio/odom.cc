@@ -507,12 +507,12 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::PointCloud2ConstPtr& pc) 
     if (field.name == "t") {
       this->sensor = dlio::SensorType::OUSTER;
       break;
-    } else if (field.name == "time") {
-      this->sensor = dlio::SensorType::VELODYNE;
-      break;
-    } else if (field.name == "timestamp") {
-      this->sensor = dlio::SensorType::HESAI;
-      break;
+    // } else if (field.name == "time") {
+    //   this->sensor = dlio::SensorType::VELODYNE;
+    //   break;
+    // } else if (field.name == "timestamp") {
+    //   this->sensor = dlio::SensorType::HESAI;
+    //   break;
     }
   }
 
@@ -609,25 +609,25 @@ void dlio::OdomNode::deskewPointcloud() {
     extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
       { return sweep_ref_time + pt.value().t * 1e-9f; };
 
-  } else if (this->sensor == dlio::SensorType::VELODYNE) {
+  // } else if (this->sensor == dlio::SensorType::VELODYNE) {
 
-    point_time_cmp = [](const PointType& p1, const PointType& p2)
-      { return p1.time < p2.time; };
-    point_time_neq = [](boost::range::index_value<PointType&, long> p1,
-                        boost::range::index_value<PointType&, long> p2)
-      { return p1.value().time != p2.value().time; };
-    extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
-      { return sweep_ref_time + pt.value().time; };
+  //   point_time_cmp = [](const PointType& p1, const PointType& p2)
+  //     { return p1.time < p2.time; };
+  //   point_time_neq = [](boost::range::index_value<PointType&, long> p1,
+  //                       boost::range::index_value<PointType&, long> p2)
+  //     { return p1.value().time != p2.value().time; };
+  //   extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
+  //     { return sweep_ref_time + pt.value().time; };
 
-  } else if (this->sensor == dlio::SensorType::HESAI) {
+  // } else if (this->sensor == dlio::SensorType::HESAI) {
 
-    point_time_cmp = [](const PointType& p1, const PointType& p2)
-      { return p1.timestamp < p2.timestamp; };
-    point_time_neq = [](boost::range::index_value<PointType&, long> p1,
-                        boost::range::index_value<PointType&, long> p2)
-      { return p1.value().timestamp != p2.value().timestamp; };
-    extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
-      { return pt.value().timestamp; };
+  //   point_time_cmp = [](const PointType& p1, const PointType& p2)
+  //     { return p1.timestamp < p2.timestamp; };
+  //   point_time_neq = [](boost::range::index_value<PointType&, long> p1,
+  //                       boost::range::index_value<PointType&, long> p2)
+  //     { return p1.value().timestamp != p2.value().timestamp; };
+  //   extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
+  //     { return pt.value().timestamp; };
 
   }
 
@@ -1895,21 +1895,21 @@ void dlio::OdomNode::debug() {
       << "Sensor Rates: Ouster @ " + to_string_with_precision(avg_lidar_rate, 2)
                                    + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
       << "|" << std::endl;
-  } else if (this->sensor == dlio::SensorType::VELODYNE) {
-    std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
-      << "Sensor Rates: Velodyne @ " + to_string_with_precision(avg_lidar_rate, 2)
-                                     + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
-      << "|" << std::endl;
-  } else if (this->sensor == dlio::SensorType::HESAI) {
-    std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
-      << "Sensor Rates: Hesai @ " + to_string_with_precision(avg_lidar_rate, 2)
-                                  + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
-      << "|" << std::endl;
-  } else {
-    std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
-      << "Sensor Rates: Unknown LiDAR @ " + to_string_with_precision(avg_lidar_rate, 2)
-                                          + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
-      << "|" << std::endl;
+  // } else if (this->sensor == dlio::SensorType::VELODYNE) {
+  //   std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
+  //     << "Sensor Rates: Velodyne @ " + to_string_with_precision(avg_lidar_rate, 2)
+  //                                    + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
+  //     << "|" << std::endl;
+  // } else if (this->sensor == dlio::SensorType::HESAI) {
+  //   std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
+  //     << "Sensor Rates: Hesai @ " + to_string_with_precision(avg_lidar_rate, 2)
+  //                                 + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
+  //     << "|" << std::endl;
+  // } else {
+  //   std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
+  //     << "Sensor Rates: Unknown LiDAR @ " + to_string_with_precision(avg_lidar_rate, 2)
+  //                                         + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
+  //     << "|" << std::endl;
   }
 
   std::cout << "|===================================================================|" << std::endl;
