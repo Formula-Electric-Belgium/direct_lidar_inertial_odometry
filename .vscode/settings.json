@@ -1,0 +1,11 @@
+{
+	"ros.distro": "noetic",
+	"python.autoComplete.extraPaths": [
+		"/home/sah0693/spare_time/ros1_ws/devel/lib/python3/dist-packages",
+		"/opt/ros/noetic/lib/python3/dist-packages"
+	],
+	"python.analysis.extraPaths": [
+		"/home/sah0693/spare_time/ros1_ws/devel/lib/python3/dist-packages",
+		"/opt/ros/noetic/lib/python3/dist-packages"
+	]
+}

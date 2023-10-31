@@ -438,16 +438,13 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   }
 
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
-
   pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud);
-
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
   deskewed_ros.header.stamp = this->scan_header_stamp;
   deskewed_ros.header.frame_id = this->odom_frame;
   this->deskewed_pub.publish(deskewed_ros);
-
 }
 
 void dlio::OdomNode::publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>, pcl::PointCloud<PointType>::ConstPtr> kf, ros::Time timestamp) {
@@ -821,7 +818,15 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
   } else {
     published_cloud = this->deskewed_scan;
   }
-  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr );
+  
+  Eigen::Matrix4f test = Eigen::Matrix4f::Identity();
+  test.block(0,0,3,3) = this->state.q.normalized().toRotationMatrix();
+  test(0,3) = this->state.p[0];
+  test(1,3) = this->state.p[1];
+  test(2,3) = this->state.p[2];
+  ROS_INFO_STREAM("Test " << test);
+  
+  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr ); //test
   this->publish_thread.detach();
 
   // Update some statistics
