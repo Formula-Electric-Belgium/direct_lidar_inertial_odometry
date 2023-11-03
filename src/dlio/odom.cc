@@ -172,6 +172,7 @@ void dlio::OdomNode::getParams() {
   ros::param::param<std::string>("~dlio/frames/baselink", this->baselink_frame, "base_link");
   ros::param::param<std::string>("~dlio/frames/lidar", this->lidar_frame, "lidar");
   ros::param::param<std::string>("~dlio/frames/imu", this->imu_frame, "imu");
+  ros::param::param<std::string>("~dlio/frames/test", this->test_frame, "test");
 
   // Get Node NS and Remove Leading Character
   std::string ns = ros::this_node::getNamespace();
@@ -428,7 +429,22 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.transform.rotation.z = qq.z();
 
   br.sendTransform(transformStamped);
+  
+  // transform: odom to test_frame
+  transformStamped.header.stamp = this->scan_header_stamp;
+  transformStamped.header.frame_id = this->odom_frame;
+  transformStamped.child_frame_id = this->test_frame;
 
+  transformStamped.transform.translation.x = this->lidarPose.p[0];
+  transformStamped.transform.translation.y = this->lidarPose.p[1];
+  transformStamped.transform.translation.z = this->lidarPose.p[2];
+
+  transformStamped.transform.rotation.w = this->lidarPose.q.w();
+  transformStamped.transform.rotation.x = this->lidarPose.q.x();
+  transformStamped.transform.rotation.y = this->lidarPose.q.y();
+  transformStamped.transform.rotation.z = this->lidarPose.q.z();
+
+  br.sendTransform(transformStamped);
 }
 
 void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
@@ -443,7 +459,7 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
   deskewed_ros.header.stamp = this->scan_header_stamp;
-  deskewed_ros.header.frame_id = this->odom_frame;
+  deskewed_ros.header.frame_id = this->test_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }
 
@@ -820,13 +836,13 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
   }
   
   Eigen::Matrix4f test = Eigen::Matrix4f::Identity();
-  test.block(0,0,3,3) = this->state.q.normalized().toRotationMatrix();
-  test(0,3) = this->state.p[0];
-  test(1,3) = this->state.p[1];
-  test(2,3) = this->state.p[2];
+  test.block(0,0,3,3) = this->lidarPose.q.normalized().toRotationMatrix();
+  test(0,3) = this->lidarPose.p[0];
+  test(1,3) = this->lidarPose.p[1];
+  test(2,3) = this->lidarPose.p[2];
   ROS_INFO_STREAM("Test " << test);
   
-  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr ); //test
+  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr*test.inverse() ); //test
   this->publish_thread.detach();
 
   // Update some statistics

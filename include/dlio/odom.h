@@ -139,6 +139,7 @@ private:
   std::string baselink_frame;
   std::string lidar_frame;
   std::string imu_frame;
+  std::string test_frame;
 
   // Preprocessing
   pcl::CropBox<PointType> crop;
