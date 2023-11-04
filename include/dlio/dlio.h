@@ -78,8 +78,6 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 #include <ouster_ros/os_point.h>
 
 namespace dlio {
-  enum class SensorType { OUSTER, VELODYNE, HESAI, UNKNOWN };
-
   class OdomNode;
   class MapNode;
 }

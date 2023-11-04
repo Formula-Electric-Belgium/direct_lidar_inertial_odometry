@@ -514,19 +514,6 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::PointCloud2ConstPtr& pc) 
   this->crop.setInputCloud(original_scan_);
   this->crop.filter(*original_scan_);
 
-  // automatically detect sensor type
-  this->sensor = dlio::SensorType::UNKNOWN;
-  for (auto &field : pc->fields) {
-    if (field.name == "t") {
-      this->sensor = dlio::SensorType::OUSTER;
-      break;
-    }
-  }
-
-  if (this->sensor == dlio::SensorType::UNKNOWN) {
-    this->deskew_ = false;
-  }
-
   this->scan_header_stamp = pc->header.stamp;
   this->original_scan = original_scan_;
 
@@ -606,15 +593,13 @@ void dlio::OdomNode::deskewPointcloud() {
                      boost::range::index_value<PointType&, long>)> point_time_neq;
   std::function<double(boost::range::index_value<PointType&, long>)> extract_point_time;
 
-  if (this->sensor == dlio::SensorType::OUSTER) {
-    point_time_cmp = [](const PointType& p1, const PointType& p2)
-      { return p1.t < p2.t; };
-    point_time_neq = [](boost::range::index_value<PointType&, long> p1,
-                        boost::range::index_value<PointType&, long> p2)
-      { return p1.value().t != p2.value().t; };
-    extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
-      { return sweep_ref_time + pt.value().t * 1e-9f; };
-  }
+  point_time_cmp = [](const PointType& p1, const PointType& p2)
+    { return p1.t < p2.t; };
+  point_time_neq = [](boost::range::index_value<PointType&, long> p1,
+                      boost::range::index_value<PointType&, long> p2)
+    { return p1.value().t != p2.value().t; };
+  extract_point_time = [&sweep_ref_time](boost::range::index_value<PointType&, long> pt)
+    { return sweep_ref_time + pt.value().t * 1e-9f; };
 
   // copy points into deskewed_scan_ in order of timestamp
   std::partial_sort_copy(this->original_scan->points.begin(), this->original_scan->points.end(),
@@ -1882,12 +1867,10 @@ void dlio::OdomNode::debug() {
       << "|" << std::endl;
   }
 
-  if (this->sensor == dlio::SensorType::OUSTER) {
-    std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
-      << "Sensor Rates: Ouster @ " + to_string_with_precision(avg_lidar_rate, 2)
-                                   + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
-      << "|" << std::endl;
-  }
+  std::cout << "| " << std::left << std::setfill(' ') << std::setw(66)
+    << "Sensor Rates: Ouster @ " + to_string_with_precision(avg_lidar_rate, 2)
+                                  + " Hz, IMU @ " + to_string_with_precision(avg_imu_rate, 2) + " Hz"
+    << "|" << std::endl;
 
   std::cout << "|===================================================================|" << std::endl;
 
