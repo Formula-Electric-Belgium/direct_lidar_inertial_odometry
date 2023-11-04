@@ -82,30 +82,6 @@ namespace dlio {
 
   class OdomNode;
   class MapNode;
-
-//   struct Point {
-//     Point(): data{0.f, 0.f, 0.f, 1.f} {}
-
-//     PCL_ADD_POINT4D;
-//     float intensity; // intensity
-//     uint32_t t; // time since beginning of scan in nanoseconds
-//     uint16_t reflectivity;
-//     uint16_t ambient;
-//     uint16_t ring;
-//     uint32_t range;
-//     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-//   } EIGEN_ALIGN16;
 }
-
-// POINT_CLOUD_REGISTER_POINT_STRUCT(dlio::Point,
-//                                  (float, x, x)
-//                                  (float, y, y)
-//                                  (float, z, z)
-//                                  (float, intensity, intensity)
-//                                  (std::uint32_t, t, t)
-//                                  (std::uint16_t, reflectivity, reflectivity)
-//                                  (std::uint16_t, ring, ring)
-//                                  (std::uint16_t, ambient, ambient)
-//                                  (std::uint32_t, range, range))
 
 typedef ouster_ros::Point PointType;
