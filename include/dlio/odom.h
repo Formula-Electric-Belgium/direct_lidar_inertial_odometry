@@ -33,8 +33,9 @@ private:
 
   void publishPose(const ros::TimerEvent& e);
 
-  void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
+  void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Eigen::Matrix4f multi_scan_T_cloud);
   void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
+  void publishMultiScanCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, ros::Time timestamp);
 
@@ -96,6 +97,7 @@ private:
   ros::Publisher kf_pose_pub;
   ros::Publisher kf_cloud_pub;
   ros::Publisher deskewed_pub;
+  ros::Publisher multi_scan_pub;
 
   // ROS Msgs
   nav_msgs::Odometry odom_ros;
@@ -146,6 +148,9 @@ private:
   pcl::PointCloud<PointType>::ConstPtr original_scan;
   pcl::PointCloud<PointType>::ConstPtr deskewed_scan;
   pcl::PointCloud<PointType>::ConstPtr current_scan;
+  pcl::PointCloud<PointType>::ConstPtr multi_scan;
+  boost::circular_buffer<pcl::PointCloud<PointType>> multi_scan_buffer;
+  std::mutex mtx_multi_scan;
 
   // Keyframes
   pcl::PointCloud<PointType>::ConstPtr keyframe_cloud;

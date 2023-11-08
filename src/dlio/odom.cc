@@ -31,12 +31,13 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->imu_sub = this->nh.subscribe("imu", 1000,
       &dlio::OdomNode::callbackImu, this, ros::TransportHints().tcpNoDelay());
 
-  this->odom_pub     = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
-  this->pose_pub     = this->nh.advertise<geometry_msgs::PoseStamped>("pose", 1, true);
-  this->path_pub     = this->nh.advertise<nav_msgs::Path>("path", 1, true);
-  this->kf_pose_pub  = this->nh.advertise<geometry_msgs::PoseArray>("kf_pose", 1, true);
-  this->kf_cloud_pub = this->nh.advertise<sensor_msgs::PointCloud2>("kf_cloud", 1, true);
-  this->deskewed_pub = this->nh.advertise<sensor_msgs::PointCloud2>("deskewed", 1, true);
+  this->odom_pub       = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
+  this->pose_pub       = this->nh.advertise<geometry_msgs::PoseStamped>("pose", 1, true);
+  this->path_pub       = this->nh.advertise<nav_msgs::Path>("path", 1, true);
+  this->kf_pose_pub    = this->nh.advertise<geometry_msgs::PoseArray>("kf_pose", 1, true);
+  this->kf_cloud_pub   = this->nh.advertise<sensor_msgs::PointCloud2>("kf_cloud", 1, true);
+  this->deskewed_pub   = this->nh.advertise<sensor_msgs::PointCloud2>("deskewed", 1, true);
+  this->multi_scan_pub = this->nh.advertise<sensor_msgs::PointCloud2>("multi_scan", 1, true);
 
   this->publish_timer = this->nh.createTimer(ros::Duration(0.01), &dlio::OdomNode::publishPose, this);
 
@@ -71,6 +72,9 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->deskewed_scan = pcl::PointCloud<PointType>::ConstPtr (boost::make_shared<const pcl::PointCloud<PointType>>());
   this->current_scan = pcl::PointCloud<PointType>::ConstPtr (boost::make_shared<const pcl::PointCloud<PointType>>());
   this->submap_cloud = pcl::PointCloud<PointType>::ConstPtr (boost::make_shared<const pcl::PointCloud<PointType>>());
+  this->multi_scan = pcl::PointCloud<PointType>::ConstPtr (boost::make_shared<const pcl::PointCloud<PointType>>());
+  this->multi_scan_buffer.set_capacity(2);
+  // this->mtx_multi_scan = std::mutex;
 
   this->num_processed_keyframes = 0;
 
@@ -356,8 +360,9 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
 
 }
 
-void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
+void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Eigen::Matrix4f multi_scan_T_cloud) {
   this->publishCloud(published_cloud, T_cloud);
+  this->publishMultiScanCloud(published_cloud, multi_scan_T_cloud);
 
   // nav_msgs::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -461,6 +466,32 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   deskewed_ros.header.stamp = this->scan_header_stamp;
   deskewed_ros.header.frame_id = this->test_frame;
   this->deskewed_pub.publish(deskewed_ros);
+}
+
+void dlio::OdomNode::publishMultiScanCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
+
+  if (this->wait_until_move_) {
+    if (this->length_traversed < 0.1) { return; }
+  }
+
+  pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
+  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud);
+
+  this->mtx_multi_scan.lock();
+  this->multi_scan_buffer.push_back(*deskewed_scan_t_);
+  if(this->multi_scan_buffer.size() > 1){
+    for(int i = 0; i < this->multi_scan_buffer.size() - 1; i++){
+      *(deskewed_scan_t_) += this->multi_scan_buffer[i];
+    }
+  }
+  mtx_multi_scan.unlock();
+  
+  // published deskewed cloud
+  sensor_msgs::PointCloud2 deskewed_ros;
+  pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
+  deskewed_ros.header.stamp = this->scan_header_stamp;
+  deskewed_ros.header.frame_id = this->odom_frame;
+  this->multi_scan_pub.publish(deskewed_ros);
 }
 
 void dlio::OdomNode::publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>, pcl::PointCloud<PointType>::ConstPtr> kf, ros::Time timestamp) {
@@ -798,7 +829,7 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
   lidar_transform(1,3) = this->lidarPose.p[1];
   lidar_transform(2,3) = this->lidarPose.p[2];
   
-  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr*lidar_transform.inverse() );
+  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr*lidar_transform.inverse(), this->T_corr );
   this->publish_thread.detach();
 
   // Update some statistics
