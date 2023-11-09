@@ -1,0 +1,7 @@
+<library path="lib/libdlio_nodelets">
+  <class name="dlio/OdomNode" type="dlio::OdomNode" base_class_type="nodelet::Nodelet">
+    <description> 
+      A cone detection nodelet
+    </description>
+  </class>
+</library>

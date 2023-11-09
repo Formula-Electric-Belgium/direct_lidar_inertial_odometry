@@ -12,13 +12,12 @@
 
 #include "dlio/dlio.h"
 
-class dlio::OdomNode {
+class dlio::OdomNode : public nodelet::Nodelet {
 
 public:
-
-  OdomNode(ros::NodeHandle node_handle);
   ~OdomNode();
-
+  
+  virtual void onInit();
   void start();
 
 private:
@@ -100,8 +99,8 @@ private:
   ros::Publisher multi_scan_pub;
 
   // ROS Msgs
-  nav_msgs::Odometry odom_ros;
-  geometry_msgs::PoseStamped pose_ros;
+  nav_msgs::Odometry::Ptr odom_ros;
+  geometry_msgs::PoseStamped::Ptr pose_ros;
   nav_msgs::Path path_ros;
   geometry_msgs::PoseArray kf_pose_ros;
 

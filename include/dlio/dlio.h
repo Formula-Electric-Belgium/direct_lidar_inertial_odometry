@@ -51,6 +51,8 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_ros/transform_broadcaster.h>
+#include <nodelet/nodelet.h>
+#include <pluginlib/class_list_macros.h>
 
 // BOOST
 #include <boost/format.hpp>

@@ -13,7 +13,7 @@
 cmake_minimum_required(VERSION 3.12.4)
 project(direct_lidar_inertial_odometry)
 
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++14 -fPIC -g)
 set(CMAKE_BUILD_TYPE "Release")
 
 find_package( PCL REQUIRED )
@@ -38,6 +38,7 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
+  nodelet
   roscpp
   std_msgs
   sensor_msgs
@@ -63,6 +64,7 @@ generate_messages(
 
 catkin_package(
   CATKIN_DEPENDS
+    nodelet
     roscpp
     std_msgs
     sensor_msgs
@@ -102,10 +104,10 @@ add_library(nano_gicp STATIC
 target_link_libraries(nano_gicp ${PCL_LIBRARIES} ${OpenMP_LIBS} nanoflann)
 
 # Odometry Node
-add_executable(dlio_odom_node src/dlio/odom_node.cc src/dlio/odom.cc)
-add_dependencies(dlio_odom_node ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
-target_compile_options(dlio_odom_node PRIVATE ${OpenMP_FLAGS})
-target_link_libraries(dlio_odom_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
+add_library(dlio_nodelets src/dlio/odom.cc)
+add_dependencies(dlio_nodelets ${catkin_EXPORTED_TARGETS} ${PROJECT_NAME}_generate_messages_cpp)
+target_compile_options(dlio_nodelets PRIVATE ${OpenMP_FLAGS})
+target_link_libraries(dlio_nodelets ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
 
 # Mapping Node
 add_executable (dlio_map_node src/dlio/map_node.cc src/dlio/map.cc)
@@ -114,7 +116,9 @@ target_compile_options(dlio_map_node PRIVATE ${OpenMP_FLAGS})
 target_link_libraries(dlio_map_node ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads)
 
 # Binaries
-install( TARGETS dlio_odom_node dlio_map_node
-         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION} )
+install( TARGETS dlio_nodelets dlio_map_node
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 install( DIRECTORY cfg launch
          DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION} )

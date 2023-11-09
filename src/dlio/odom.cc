@@ -12,7 +12,8 @@
 
 #include "dlio/odom.h"
 
-dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
+void dlio::OdomNode::onInit() {
+  this->nh = this->getMTNodeHandle();
 
   this->getParams();
 
@@ -320,41 +321,43 @@ void dlio::OdomNode::start() {
 void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
 
   // nav_msgs::Odometry
-  this->odom_ros.header.stamp = this->imu_stamp;
-  this->odom_ros.header.frame_id = this->odom_frame;
-  this->odom_ros.child_frame_id = this->baselink_frame;
+  this->odom_ros = boost::make_shared<nav_msgs::Odometry>();
+  this->odom_ros->header.stamp = this->imu_stamp;
+  this->odom_ros->header.frame_id = this->odom_frame;
+  this->odom_ros->child_frame_id = this->baselink_frame;
 
-  this->odom_ros.pose.pose.position.x = this->state.p[0];
-  this->odom_ros.pose.pose.position.y = this->state.p[1];
-  this->odom_ros.pose.pose.position.z = this->state.p[2];
+  this->odom_ros->pose.pose.position.x = this->state.p[0];
+  this->odom_ros->pose.pose.position.y = this->state.p[1];
+  this->odom_ros->pose.pose.position.z = this->state.p[2];
 
-  this->odom_ros.pose.pose.orientation.w = this->state.q.w();
-  this->odom_ros.pose.pose.orientation.x = this->state.q.x();
-  this->odom_ros.pose.pose.orientation.y = this->state.q.y();
-  this->odom_ros.pose.pose.orientation.z = this->state.q.z();
+  this->odom_ros->pose.pose.orientation.w = this->state.q.w();
+  this->odom_ros->pose.pose.orientation.x = this->state.q.x();
+  this->odom_ros->pose.pose.orientation.y = this->state.q.y();
+  this->odom_ros->pose.pose.orientation.z = this->state.q.z();
 
-  this->odom_ros.twist.twist.linear.x = this->state.v.lin.w[0];
-  this->odom_ros.twist.twist.linear.y = this->state.v.lin.w[1];
-  this->odom_ros.twist.twist.linear.z = this->state.v.lin.w[2];
+  this->odom_ros->twist.twist.linear.x = this->state.v.lin.w[0];
+  this->odom_ros->twist.twist.linear.y = this->state.v.lin.w[1];
+  this->odom_ros->twist.twist.linear.z = this->state.v.lin.w[2];
 
-  this->odom_ros.twist.twist.angular.x = this->state.v.ang.b[0];
-  this->odom_ros.twist.twist.angular.y = this->state.v.ang.b[1];
-  this->odom_ros.twist.twist.angular.z = this->state.v.ang.b[2];
+  this->odom_ros->twist.twist.angular.x = this->state.v.ang.b[0];
+  this->odom_ros->twist.twist.angular.y = this->state.v.ang.b[1];
+  this->odom_ros->twist.twist.angular.z = this->state.v.ang.b[2];
 
   this->odom_pub.publish(this->odom_ros);
 
   // geometry_msgs::PoseStamped
-  this->pose_ros.header.stamp = this->imu_stamp;
-  this->pose_ros.header.frame_id = this->odom_frame;
+  this->pose_ros = boost::make_shared<geometry_msgs::PoseStamped>();
+  this->pose_ros->header.stamp = this->imu_stamp;
+  this->pose_ros->header.frame_id = this->odom_frame;
 
-  this->pose_ros.pose.position.x = this->state.p[0];
-  this->pose_ros.pose.position.y = this->state.p[1];
-  this->pose_ros.pose.position.z = this->state.p[2];
+  this->pose_ros->pose.position.x = this->state.p[0];
+  this->pose_ros->pose.position.y = this->state.p[1];
+  this->pose_ros->pose.position.z = this->state.p[2];
 
-  this->pose_ros.pose.orientation.w = this->state.q.w();
-  this->pose_ros.pose.orientation.x = this->state.q.x();
-  this->pose_ros.pose.orientation.y = this->state.q.y();
-  this->pose_ros.pose.orientation.z = this->state.q.z();
+  this->pose_ros->pose.orientation.w = this->state.q.w();
+  this->pose_ros->pose.orientation.x = this->state.q.x();
+  this->pose_ros->pose.orientation.y = this->state.q.y();
+  this->pose_ros->pose.orientation.z = this->state.q.z();
 
   this->pose_pub.publish(this->pose_ros);
 
@@ -362,7 +365,7 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
 
 void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Eigen::Matrix4f multi_scan_T_cloud) {
   this->publishCloud(published_cloud, T_cloud);
-  this->publishMultiScanCloud(published_cloud, multi_scan_T_cloud);
+  // this->publishMultiScanCloud(published_cloud, multi_scan_T_cloud);
 
   // nav_msgs::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -487,10 +490,10 @@ void dlio::OdomNode::publishMultiScanCloud(pcl::PointCloud<PointType>::ConstPtr 
   mtx_multi_scan.unlock();
   
   // published deskewed cloud
-  sensor_msgs::PointCloud2 deskewed_ros;
-  pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = this->scan_header_stamp;
-  deskewed_ros.header.frame_id = this->odom_frame;
+  sensor_msgs::PointCloud2::Ptr deskewed_ros = boost::make_shared<sensor_msgs::PointCloud2>();
+  pcl::toROSMsg(*deskewed_scan_t_, *deskewed_ros);
+  deskewed_ros->header.stamp = this->scan_header_stamp;
+  deskewed_ros->header.frame_id = this->odom_frame;
   this->multi_scan_pub.publish(deskewed_ros);
 }
 
@@ -676,7 +679,7 @@ void dlio::OdomNode::deskewPointcloud() {
   // if there are no frames between the start and end of the sweep
   // that probably means that there's a sync issue
   if (frames.size() != timestamps.size()) {
-    ROS_FATAL("Bad time sync between LiDAR and IMU!");
+    NODELET_FATAL("Bad time sync between LiDAR and IMU!");
 
     this->T_prior = this->T;
     pcl::transformPointCloud (*deskewed_scan_, *deskewed_scan_, this->T_prior * this->extrinsics.baselink2lidar_T);
@@ -736,10 +739,10 @@ void dlio::OdomNode::initializeDLIO() {
 }
 
 void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& pc) {
-
   std::unique_lock<decltype(this->main_loop_running_mutex)> lock(main_loop_running_mutex);
   this->main_loop_running = true;
   lock.unlock();
+  
 
   double then = ros::Time::now().toSec();
 
@@ -763,7 +766,7 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
   }
 
   if (this->current_scan->points.size() <= this->gicp_min_num_points_) {
-    ROS_FATAL("Low number of points in the cloud!");
+    NODELET_FATAL("Low number of points in the cloud!");
     return;
   }
 
@@ -1978,3 +1981,5 @@ void dlio::OdomNode::debug() {
   std::cout << "+-------------------------------------------------------------------+" << std::endl;
 
 }
+
+PLUGINLIB_EXPORT_CLASS(dlio::OdomNode, nodelet::Nodelet)
