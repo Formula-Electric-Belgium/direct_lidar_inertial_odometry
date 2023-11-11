@@ -45,6 +45,7 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
   pcl_ros
   message_generation
+  ouster_ros
 )
 
 add_service_files(

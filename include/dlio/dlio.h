@@ -75,34 +75,11 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 // DLIO
 #include <nano_gicp/nano_gicp.h>
 #include <direct_lidar_inertial_odometry/save_pcd.h>
+#include <ouster_ros/os_point.h>
 
 namespace dlio {
-  enum class SensorType { OUSTER, VELODYNE, HESAI, UNKNOWN };
-
   class OdomNode;
   class MapNode;
-
-  struct Point {
-    Point(): data{0.f, 0.f, 0.f, 1.f} {}
-
-    PCL_ADD_POINT4D;
-    float intensity; // intensity
-    union {
-      std::uint32_t t; // time since beginning of scan in nanoseconds
-      float time; // time since beginning of scan in seconds
-      double timestamp; // absolute timestamp in seconds
-    };
-    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  } EIGEN_ALIGN16;
 }
 
-POINT_CLOUD_REGISTER_POINT_STRUCT(dlio::Point,
-                                 (float, x, x)
-                                 (float, y, y)
-                                 (float, z, z)
-                                 (float, intensity, intensity)
-                                 (std::uint32_t, t, t)
-                                 (float, time, time)
-                                 (double, timestamp, timestamp))
-
-typedef dlio::Point PointType;
+typedef ouster_ros::Point PointType;
