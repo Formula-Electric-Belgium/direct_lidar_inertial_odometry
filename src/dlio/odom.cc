@@ -26,9 +26,9 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->deskew_status = false;
   this->deskew_size = 0;
 
-  this->lidar_sub = this->nh.subscribe("pointcloud", 1,
+  this->lidar_sub = this->nh.subscribe("/ouster/points", 1,
       &dlio::OdomNode::callbackPointCloud, this, ros::TransportHints().tcpNoDelay());
-  this->imu_sub = this->nh.subscribe("imu", 1000,
+  this->imu_sub = this->nh.subscribe("/ouster/imu", 1000,
       &dlio::OdomNode::callbackImu, this, ros::TransportHints().tcpNoDelay());
 
   this->odom_pub     = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
@@ -64,6 +64,7 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->imu_meas.lin_accel[2] = 0.;
 
   this->imu_buffer.set_capacity(this->imu_buffer_size_);
+  this->pose_buffer.set_capacity(this->imu_buffer_size_);
   this->first_imu_stamp = 0.;
   this->prev_imu_stamp = 0.;
 
@@ -142,6 +143,7 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->cpu_type = CPUBrandString;
   boost::trim(this->cpu_type);
   #endif
+
 
   FILE* file;
   struct tms timeSample;
@@ -336,7 +338,7 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
   this->odom_ros.twist.twist.angular.x = this->state.v.ang.b[0];
   this->odom_ros.twist.twist.angular.y = this->state.v.ang.b[1];
   this->odom_ros.twist.twist.angular.z = this->state.v.ang.b[2];
-
+  //printf("[ODOM]  Time: %lf x: %f y: %lf z: %lf\n", this->imu_stamp.toSec(), this->state.p[0], this->state.p[1], this->state.p[2]);
   this->odom_pub.publish(this->odom_ros);
 
   // geometry_msgs::PoseStamped
@@ -447,6 +449,53 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   br.sendTransform(transformStamped);
 }
 
+// Function for correcting the pointcloud tilestamp to more accurate represent its pose
+ros::Time dlio::OdomNode::correctTimestamp(ros::Time original_stamp) {
+  
+  // Pose buffer is empty, return previous stamp
+  if (this->pose_buffer.empty()) {
+    printf("Correct timestamp failed 1\n");
+    return original_stamp;
+  }
+
+  // Required variables
+  auto curr_pose = this->pose_buffer.begin(); // Current pose
+  auto prev_pose = this->pose_buffer.begin(); // Previous pose
+  auto best_prev_pose = this->pose_buffer.begin(); // Best previous pose
+  auto best_curr_pose = this->pose_buffer.begin(); // Best current pose
+  double best_cost = -1;
+
+  // Loop through buffer
+  while (curr_pose->second.toSec() > original_stamp.toSec()) {
+    
+    // End of buffer reached but scan time not reached yet, return previous stamp (end-1 is last valid entry)
+    if (curr_pose == this->pose_buffer.end()-1) {
+      printf("Correct timestamp failed 2\n");
+      return original_stamp;
+    }
+
+    // Update iterators
+    prev_pose = curr_pose;
+    curr_pose++;
+    
+    // Find the sum of distances between lidarPose and 2 consecutive poses
+    double cost = (prev_pose->first - this->lidarPose.p).norm() + (curr_pose->first - this->lidarPose.p).norm();
+    
+    // Save cost and pose if better than previous best
+    if (best_cost == -1 || best_cost > cost) {
+      best_cost = cost;
+      best_prev_pose = prev_pose;
+      best_curr_pose = curr_pose;
+    }
+  }
+  // We now know the best previous and next pose to the lidar pose and can interpolate the timestamp
+  double dt = best_prev_pose->second.toSec() - best_curr_pose->second.toSec();
+  float prev_weight = (best_prev_pose->first - this->lidarPose.p).norm() / best_cost;
+  double newTime = dt * prev_weight + best_curr_pose->second.toSec();
+  //printf("%lf\n%lf\n%f\n%f\n%f\n", best_prev_pose->second.toSec(), best_curr_pose->second.toSec(), prev_weight, dt, newTime);
+  return ros::Time().fromSec(newTime);
+}
+
 void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
 
   if (this->wait_until_move_) {
@@ -458,7 +507,8 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = this->scan_header_stamp;
+  deskewed_ros.header.stamp = this->correctTimestamp(this->scan_header_stamp);
+  //deskewed_ros.header.stamp = this->scan_header_stamp;
   deskewed_ros.header.frame_id = this->test_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }
@@ -797,6 +847,8 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
   lidar_transform(0,3) = this->lidarPose.p[0];
   lidar_transform(1,3) = this->lidarPose.p[1];
   lidar_transform(2,3) = this->lidarPose.p[2];
+  //printf("[LIDAR] Time: %lf x: %f y: %lf z: %lf\n", this->scan_stamp, this->lidarPose.p[0], this->lidarPose.p[1], this->lidarPose.p[2]);
+  //printf("Old time: %lf, new time: %lf\n", this->scan_header_stamp.toSec(), correctTimestamp(this->scan_header_stamp).toSec());
   
   this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr*lidar_transform.inverse() );
   this->publish_thread.detach();
@@ -1257,6 +1309,11 @@ void dlio::OdomNode::propagateState() {
 
   this->state.v.ang.b = this->imu_meas.ang_vel;
   this->state.v.ang.w = this->state.q.toRotationMatrix() * this->state.v.ang.b;
+
+  // Add 3D position with stamp as a pair to circular buffer
+  this->mtx_pose.lock();
+  this->pose_buffer.push_front(std::make_pair(state.p, this->imu_stamp));
+  this->mtx_pose.unlock();
 
 }
 
