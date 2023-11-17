@@ -25,7 +25,6 @@ private:
 
   struct State;
   struct ImuMeas;
-  struct PositionSample;
 
   void getParams();
 
@@ -267,6 +266,8 @@ private:
   };
   Pose lidarPose;
   Pose imuPose;
+  Pose tempPose1;
+  Pose tempPose2;
 
   // Metrics
   struct Metrics {
