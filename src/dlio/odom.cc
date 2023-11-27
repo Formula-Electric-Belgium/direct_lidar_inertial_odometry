@@ -316,6 +316,9 @@ void dlio::OdomNode::start() {
 }
 
 void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
+  this->tempPose1.p = this->state.p;
+  this->tempPose1.q = this->state.q;
+  this->tempTime = this->imu_stamp;
 
   // nav_msgs::Odometry
   this->odom_ros.header.stamp = this->imu_stamp;
@@ -506,8 +509,8 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
   transform_matrix.block(0,0,3,3) = (this->tempPose2.q.normalized() * this->tempPose1.q.normalized().inverse()).normalized().toRotationMatrix();
   transform_matrix(0,3) = this->tempPose2.p[0] - this->tempPose1.p[0];
-  transform_matrix(1,3) = this->lidarPose.p[1] - this->tempPose1.p[1];
-  transform_matrix(2,3) = this->lidarPose.p[2] - this->tempPose1.p[2];
+  transform_matrix(1,3) = this->tempPose2.p[1] - this->tempPose1.p[1];
+  transform_matrix(2,3) = this->tempPose2.p[2] - this->tempPose1.p[2];
 
   /*printf("p1: %f %f %f p2: %f %f %f q1: %f %f %f %f q2: %f %f %f %f\n", this->tempPose1.p[0], this->tempPose1.p[1], this->tempPose1.p[2],
                                                                         this->tempPose2.p[0], this->tempPose2.p[1], this->tempPose2.p[2],
@@ -519,9 +522,9 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = this->correctTimestamp(this->scan_header_stamp);
+  deskewed_ros.header.stamp = this->tempTime;;
   //deskewed_ros.header.stamp = this->scan_header_stamp;
-  deskewed_ros.header.frame_id = this->test_frame;
+  deskewed_ros.header.frame_id = this->baselink_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }
 
@@ -612,8 +615,6 @@ void dlio::OdomNode::preprocessPoints() {
     std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> frames;
       frames = this->integrateImu(this->prev_scan_stamp, this->lidarPose.q, this->lidarPose.p,
                                 this->geo.prev_vel.cast<float>(), {this->scan_stamp});
-    this->tempPose1.p = this->lidarPose.p;
-    this->tempPose1.q = this->lidarPose.q;
     if (frames.size() > 0) {
       this->T_prior = frames.back();
     } else {
@@ -1167,9 +1168,6 @@ dlio::OdomNode::integrateImu(double start_time, Eigen::Quaternionf q_init, Eigen
 
   // Set p_init to position at first IMU sample (go backwards from start_time)
   p_init -= v_init*idt + 0.5*a1*idt*idt + (1/6.)*j*idt*idt*idt;
-
-  this->tempPose1.p = p_init;
-  this->tempPose1.q = q_init;
 
   return this->integrateImuInternal(q_init, p_init, v_init, sorted_timestamps, begin_imu_it, end_imu_it);
 }

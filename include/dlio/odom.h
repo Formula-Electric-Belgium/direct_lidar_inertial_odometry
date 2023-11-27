@@ -268,6 +268,7 @@ private:
   Pose imuPose;
   Pose tempPose1;
   Pose tempPose2;
+  ros::Time tempTime;
 
   // Metrics
   struct Metrics {
