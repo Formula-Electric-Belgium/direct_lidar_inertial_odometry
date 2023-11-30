@@ -12,6 +12,11 @@
 
 #include "dlio/dlio.h"
 
+struct Pose {
+  Eigen::Vector3f p; // position in world frame
+  Eigen::Quaternionf q; // orientation in world frame
+};
+
 class dlio::OdomNode {
 
 public:
@@ -33,8 +38,8 @@ private:
 
   void publishPose(const ros::TimerEvent& e);
   ros::Time correctTimestamp(ros::Time original_stamp);
-  void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
-  void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
+  void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose pose, ros::Time stamp);
+  void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose tempPose1, ros::Time tempTime);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, ros::Time timestamp);
 
@@ -260,10 +265,6 @@ private:
     ImuBias b; // imu biases in body frame
   }; State state;
 
-  struct Pose {
-    Eigen::Vector3f p; // position in world frame
-    Eigen::Quaternionf q; // orientation in world frame
-  };
   Pose lidarPose;
   Pose imuPose;
   Pose tempPose1;

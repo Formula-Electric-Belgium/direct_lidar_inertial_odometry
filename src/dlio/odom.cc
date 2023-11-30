@@ -26,7 +26,7 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->deskew_status = false;
   this->deskew_size = 0;
 
-  this->lidar_sub = this->nh.subscribe("points", 1,
+  this->lidar_sub = this->nh.subscribe("pointcloud", 1,
       &dlio::OdomNode::callbackPointCloud, this, ros::TransportHints().tcpNoDelay());
   this->imu_sub = this->nh.subscribe("imu", 1000,
       &dlio::OdomNode::callbackImu, this, ros::TransportHints().tcpNoDelay());
@@ -361,8 +361,8 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
 
 }
 
-void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
-  this->publishCloud(published_cloud, T_cloud);
+void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose pose, ros::Time stamp) {
+  this->publishCloud(published_cloud, T_cloud, pose, stamp);
 
   // nav_msgs::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -378,7 +378,7 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   p.pose.orientation.x = this->state.q.x();
   p.pose.orientation.y = this->state.q.y();
   p.pose.orientation.z = this->state.q.z();
-
+  
   this->path_ros.poses.push_back(p);
   this->path_pub.publish(this->path_ros);
 
@@ -499,7 +499,7 @@ ros::Time dlio::OdomNode::correctTimestamp(ros::Time original_stamp) {
   return ros::Time().fromSec(newTime);
 }
 
-void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
+void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose tempPose1, ros::Time tempTime) {
 
   if (this->wait_until_move_) {
     if (this->length_traversed < 0.1) { return; }
@@ -507,22 +507,21 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   this->tempPose2.p = this->lidarPose.p;
   this->tempPose2.q = this->lidarPose.q;
   Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
-  transform_matrix.block(0,0,3,3) = (this->tempPose2.q.normalized() * this->tempPose1.q.normalized().inverse()).normalized().toRotationMatrix();
-  transform_matrix(0,3) = this->tempPose2.p[0] - this->tempPose1.p[0];
-  transform_matrix(1,3) = this->tempPose2.p[1] - this->tempPose1.p[1];
-  transform_matrix(2,3) = this->tempPose2.p[2] - this->tempPose1.p[2];
+  transform_matrix.block(0,0,3,3) = tempPose1.q.normalized().toRotationMatrix();
+  transform_matrix(0,3) = tempPose1.p[0];
+  transform_matrix(1,3) = tempPose1.p[1];
+  transform_matrix(2,3) = tempPose1.p[2];
 
   /*printf("p1: %f %f %f p2: %f %f %f q1: %f %f %f %f q2: %f %f %f %f\n", this->tempPose1.p[0], this->tempPose1.p[1], this->tempPose1.p[2],
                                                                         this->tempPose2.p[0], this->tempPose2.p[1], this->tempPose2.p[2],
                                                                         this->tempPose1.q.x(), this->tempPose1.q.y(), this->tempPose1.q.z(), this->tempPose1.q.w(),
                                                                         this->tempPose2.q.x(), this->tempPose2.q.y(), this->tempPose2.q.z(), this->tempPose2.q.w());*/
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
-  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud);
-  pcl::transformPointCloud (*deskewed_scan_t_, *deskewed_scan_t_, transform_matrix);
+  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud * transform_matrix.inverse());
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = this->tempTime;;
+  deskewed_ros.header.stamp = tempTime;
   //deskewed_ros.header.stamp = this->scan_header_stamp;
   deskewed_ros.header.frame_id = this->baselink_frame;
   this->deskewed_pub.publish(deskewed_ros);
@@ -857,14 +856,10 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
   }
   
   Eigen::Matrix4f lidar_transform = Eigen::Matrix4f::Identity();
-  lidar_transform.block(0,0,3,3) = this->lidarPose.q.normalized().toRotationMatrix();
-  lidar_transform(0,3) = this->lidarPose.p[0];
-  lidar_transform(1,3) = this->lidarPose.p[1];
-  lidar_transform(2,3) = this->lidarPose.p[2];
   //printf("[LIDAR] Time: %lf x: %f y: %lf z: %lf\n", this->scan_stamp, this->lidarPose.p[0], this->lidarPose.p[1], this->lidarPose.p[2]);
   //printf("Old time: %lf, new time: %lf\n", this->scan_header_stamp.toSec(), correctTimestamp(this->scan_header_stamp).toSec());
   
-  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr*lidar_transform.inverse() );
+  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr, this->tempPose1, this->imu_stamp);
   this->publish_thread.detach();
 
   // Update some statistics
