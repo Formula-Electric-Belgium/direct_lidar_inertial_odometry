@@ -68,6 +68,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     pcl_ros
+    message_runtime
   INCLUDE_DIRS
     include
   LIBRARIES
