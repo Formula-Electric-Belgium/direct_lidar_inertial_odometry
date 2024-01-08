@@ -38,8 +38,8 @@ private:
 
   void publishPose(const ros::TimerEvent& e);
   ros::Time correctTimestamp(ros::Time original_stamp);
-  void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose pose, ros::Time stamp);
-  void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose tempPose1, ros::Time tempTime);
+  void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
+  void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, ros::Time timestamp);
 
@@ -267,9 +267,8 @@ private:
 
   Pose lidarPose;
   Pose imuPose;
-  Pose tempPose1;
-  Pose tempPose2;
-  ros::Time tempTime;
+  Pose publishedPose;
+  ros::Time publPoseTime;
 
   // Metrics
   struct Metrics {

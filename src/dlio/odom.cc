@@ -316,9 +316,11 @@ void dlio::OdomNode::start() {
 }
 
 void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
-  this->tempPose1.p = this->state.p;
-  this->tempPose1.q = this->state.q;
-  this->tempTime = this->imu_stamp;
+  
+  // Copy the current state for synchronisation with SLAM
+  this->publishedPose.p = this->state.p;
+  this->publishedPose.q = this->state.q;
+  this->publPoseTime = this->imu_stamp;
 
   // nav_msgs::Odometry
   this->odom_ros.header.stamp = this->imu_stamp;
@@ -361,8 +363,8 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
 
 }
 
-void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose pose, ros::Time stamp) {
-  this->publishCloud(published_cloud, T_cloud, pose, stamp);
+void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
+  this->publishCloud(published_cloud, T_cloud);
 
   // nav_msgs::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -390,14 +392,14 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.header.frame_id = this->odom_frame;
   transformStamped.child_frame_id = this->baselink_frame;
 
-  transformStamped.transform.translation.x = this->state.p[0];
-  transformStamped.transform.translation.y = this->state.p[1];
-  transformStamped.transform.translation.z = this->state.p[2];
+  transformStamped.transform.translation.x = this->publishedPose.p[0];
+  transformStamped.transform.translation.y = this->publishedPose.p[1];
+  transformStamped.transform.translation.z = this->publishedPose.p[2];
 
-  transformStamped.transform.rotation.w = this->state.q.w();
-  transformStamped.transform.rotation.x = this->state.q.x();
-  transformStamped.transform.rotation.y = this->state.q.y();
-  transformStamped.transform.rotation.z = this->state.q.z();
+  transformStamped.transform.rotation.w = this->publishedPose.q.w();
+  transformStamped.transform.rotation.x = this->publishedPose.q.x();
+  transformStamped.transform.rotation.y = this->publishedPose.q.y();
+  transformStamped.transform.rotation.z = this->publishedPose.q.z();
 
   br.sendTransform(transformStamped);
 
@@ -499,30 +501,26 @@ ros::Time dlio::OdomNode::correctTimestamp(ros::Time original_stamp) {
   return ros::Time().fromSec(newTime);
 }
 
-void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose tempPose1, ros::Time tempTime) {
+void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
 
   if (this->wait_until_move_) {
     if (this->length_traversed < 0.1) { return; }
   }
-  this->tempPose2.p = this->lidarPose.p;
-  this->tempPose2.q = this->lidarPose.q;
+  
+  // Build baselink to odom transform matrix
   Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
-  transform_matrix.block(0,0,3,3) = tempPose1.q.normalized().toRotationMatrix();
-  transform_matrix(0,3) = tempPose1.p[0];
-  transform_matrix(1,3) = tempPose1.p[1];
-  transform_matrix(2,3) = tempPose1.p[2];
+  transform_matrix.block(0,0,3,3) = publishedPose.q.normalized().toRotationMatrix();
+  transform_matrix(0,3) = publishedPose.p[0];
+  transform_matrix(1,3) = publishedPose.p[1];
+  transform_matrix(2,3) = publishedPose.p[2];
 
-  /*printf("p1: %f %f %f p2: %f %f %f q1: %f %f %f %f q2: %f %f %f %f\n", this->tempPose1.p[0], this->tempPose1.p[1], this->tempPose1.p[2],
-                                                                        this->tempPose2.p[0], this->tempPose2.p[1], this->tempPose2.p[2],
-                                                                        this->tempPose1.q.x(), this->tempPose1.q.y(), this->tempPose1.q.z(), this->tempPose1.q.w(),
-                                                                        this->tempPose2.q.x(), this->tempPose2.q.y(), this->tempPose2.q.z(), this->tempPose2.q.w());*/
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
   pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud * transform_matrix.inverse());
+
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = tempTime;
-  //deskewed_ros.header.stamp = this->scan_header_stamp;
+  deskewed_ros.header.stamp = publPoseTime;
   deskewed_ros.header.frame_id = this->baselink_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }
@@ -855,11 +853,7 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
     published_cloud = this->deskewed_scan;
   }
   
-  Eigen::Matrix4f lidar_transform = Eigen::Matrix4f::Identity();
-  //printf("[LIDAR] Time: %lf x: %f y: %lf z: %lf\n", this->scan_stamp, this->lidarPose.p[0], this->lidarPose.p[1], this->lidarPose.p[2]);
-  //printf("Old time: %lf, new time: %lf\n", this->scan_header_stamp.toSec(), correctTimestamp(this->scan_header_stamp).toSec());
-  
-  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr, this->tempPose1, this->imu_stamp);
+  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr);
   this->publish_thread.detach();
 
   // Update some statistics
