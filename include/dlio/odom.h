@@ -12,11 +12,6 @@
 
 #include "dlio/dlio.h"
 
-struct Pose {
-  Eigen::Vector3f p; // position in world frame
-  Eigen::Quaternionf q; // orientation in world frame
-};
-
 class dlio::OdomNode {
 
 public:
@@ -37,7 +32,7 @@ private:
   void callbackImu(const sensor_msgs::Imu::ConstPtr& imu);
 
   void publishPose(const ros::TimerEvent& e);
-  ros::Time correctTimestamp(ros::Time original_stamp);
+
   void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
   void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
@@ -222,9 +217,7 @@ private:
   }; ImuMeas imu_meas;
 
   boost::circular_buffer<ImuMeas> imu_buffer;
-  boost::circular_buffer<std::pair<Eigen::Vector3f, ros::Time>> pose_buffer;
   std::mutex mtx_imu;
-  std::mutex mtx_pose;
   std::condition_variable cv_imu_stamp;
 
   static bool comparatorImu(ImuMeas m1, ImuMeas m2) {
@@ -264,7 +257,11 @@ private:
     Velocity v;
     ImuBias b; // imu biases in body frame
   }; State state;
-
+  
+struct Pose {
+    Eigen::Vector3f p; // position in world frame
+    Eigen::Quaternionf q; // orientation in world frame
+  };
   Pose lidarPose;
   Pose imuPose;
   Pose publishedPose;

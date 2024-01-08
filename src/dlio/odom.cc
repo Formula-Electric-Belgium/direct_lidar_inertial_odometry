@@ -64,7 +64,6 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->imu_meas.lin_accel[2] = 0.;
 
   this->imu_buffer.set_capacity(this->imu_buffer_size_);
-  this->pose_buffer.set_capacity(this->imu_buffer_size_);
   this->first_imu_stamp = 0.;
   this->prev_imu_stamp = 0.;
 
@@ -143,7 +142,6 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->cpu_type = CPUBrandString;
   boost::trim(this->cpu_type);
   #endif
-
 
   FILE* file;
   struct tms timeSample;
@@ -343,7 +341,7 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
   this->odom_ros.twist.twist.angular.x = this->state.v.ang.b[0];
   this->odom_ros.twist.twist.angular.y = this->state.v.ang.b[1];
   this->odom_ros.twist.twist.angular.z = this->state.v.ang.b[2];
-  //printf("[ODOM]  Time: %lf x: %f y: %lf z: %lf\n", this->imu_stamp.toSec(), this->state.p[0], this->state.p[1], this->state.p[2]);
+
   this->odom_pub.publish(this->odom_ros);
 
   // geometry_msgs::PoseStamped
@@ -452,53 +450,6 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.transform.rotation.z = this->lidarPose.q.z();
 
   br.sendTransform(transformStamped);
-}
-
-// Function for correcting the pointcloud tilestamp to more accurate represent its pose
-ros::Time dlio::OdomNode::correctTimestamp(ros::Time original_stamp) {
-  
-  // Pose buffer is empty, return previous stamp
-  if (this->pose_buffer.empty()) {
-    printf("Correct timestamp failed 1\n");
-    return original_stamp;
-  }
-
-  // Required variables
-  auto curr_pose = this->pose_buffer.begin(); // Current pose
-  auto prev_pose = this->pose_buffer.begin(); // Previous pose
-  auto best_prev_pose = this->pose_buffer.begin(); // Best previous pose
-  auto best_curr_pose = this->pose_buffer.begin(); // Best current pose
-  double best_cost = -1;
-
-  // Loop through buffer
-  while (curr_pose->second.toSec() > original_stamp.toSec()) {
-    
-    // End of buffer reached but scan time not reached yet, return previous stamp (end-1 is last valid entry)
-    if (curr_pose == this->pose_buffer.end()-1) {
-      printf("Correct timestamp failed 2\n");
-      return original_stamp;
-    }
-
-    // Update iterators
-    prev_pose = curr_pose;
-    curr_pose++;
-    
-    // Find the sum of distances between lidarPose and 2 consecutive poses
-    double cost = (prev_pose->first - this->lidarPose.p).norm() + (curr_pose->first - this->lidarPose.p).norm();
-    
-    // Save cost and pose if better than previous best
-    if (best_cost == -1 || best_cost > cost) {
-      best_cost = cost;
-      best_prev_pose = prev_pose;
-      best_curr_pose = curr_pose;
-    }
-  }
-  // We now know the best previous and next pose to the lidar pose and can interpolate the timestamp
-  double dt = best_prev_pose->second.toSec() - best_curr_pose->second.toSec();
-  float prev_weight = (best_prev_pose->first - this->lidarPose.p).norm() / best_cost;
-  double newTime = dt * prev_weight + best_curr_pose->second.toSec();
-  //printf("%lf\n%lf\n%f\n%f\n%f\n", best_prev_pose->second.toSec(), best_curr_pose->second.toSec(), prev_weight, dt, newTime);
-  return ros::Time().fromSec(newTime);
 }
 
 void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
@@ -612,6 +563,7 @@ void dlio::OdomNode::preprocessPoints() {
     std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f>> frames;
       frames = this->integrateImu(this->prev_scan_stamp, this->lidarPose.q, this->lidarPose.p,
                                 this->geo.prev_vel.cast<float>(), {this->scan_stamp});
+
     if (frames.size() > 0) {
       this->T_prior = frames.back();
     } else {
@@ -1312,11 +1264,6 @@ void dlio::OdomNode::propagateState() {
 
   this->state.v.ang.b = this->imu_meas.ang_vel;
   this->state.v.ang.w = this->state.q.toRotationMatrix() * this->state.v.ang.b;
-
-  // Add 3D position with stamp as a pair to circular buffer
-  this->mtx_pose.lock();
-  this->pose_buffer.push_front(std::make_pair(state.p, this->imu_stamp));
-  this->mtx_pose.unlock();
 
 }
 
