@@ -68,6 +68,7 @@ catkin_package(
     sensor_msgs
     geometry_msgs
     pcl_ros
+    message_runtime
   INCLUDE_DIRS
     include
   LIBRARIES
@@ -93,6 +94,7 @@ add_library(nanoflann STATIC
   src/nano_gicp/nanoflann.cc
 )
 target_link_libraries(nanoflann ${PCL_LIBRARIES})
+add_dependencies(nanoflann ${catkin_EXPORTED_TARGETS})
 
 # NanoGICP
 add_library(nano_gicp STATIC
