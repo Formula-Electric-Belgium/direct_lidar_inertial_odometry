@@ -26,9 +26,9 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->deskew_status = false;
   this->deskew_size = 0;
 
-  this->lidar_sub = this->nh.subscribe("pointcloud", 1,
+  this->lidar_sub = this->nh.subscribe("/ouster/points", 1,
       &dlio::OdomNode::callbackPointCloud, this, ros::TransportHints().tcpNoDelay());
-  this->imu_sub = this->nh.subscribe("imu", 1000,
+  this->imu_sub = this->nh.subscribe("/ouster/imu", 1000,
       &dlio::OdomNode::callbackImu, this, ros::TransportHints().tcpNoDelay());
 
   this->odom_pub     = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
@@ -316,9 +316,11 @@ void dlio::OdomNode::start() {
 void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
   
   // Copy the current state for synchronisation with SLAM
+  publishedPoseMtx.lock();
   this->publishedPose.p = this->state.p;
   this->publishedPose.q = this->state.q;
-  this->publPoseTime = this->imu_stamp;
+  this->publishedPoseTime = this->imu_stamp;
+  publishedPoseMtx.unlock();
 
   // nav_msgs::Odometry
   this->odom_ros.header.stamp = this->imu_stamp;
@@ -390,6 +392,7 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.header.frame_id = this->odom_frame;
   transformStamped.child_frame_id = this->baselink_frame;
 
+  publishedPoseMtx.lock();
   transformStamped.transform.translation.x = this->publishedPose.p[0];
   transformStamped.transform.translation.y = this->publishedPose.p[1];
   transformStamped.transform.translation.z = this->publishedPose.p[2];
@@ -398,6 +401,7 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.transform.rotation.x = this->publishedPose.q.x();
   transformStamped.transform.rotation.y = this->publishedPose.q.y();
   transformStamped.transform.rotation.z = this->publishedPose.q.z();
+  publishedPoseMtx.unlock();
 
   br.sendTransform(transformStamped);
 
@@ -457,21 +461,30 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
   if (this->wait_until_move_) {
     if (this->length_traversed < 0.1) { return; }
   }
+
+  // Copy published pose and time to avoid change during transform (takes long)
+  Pose poseCopy;
+  this->publishedPoseMtx.lock();
+  poseCopy.p = this->publishedPose.p;
+  poseCopy.q = this->publishedPose.q;
+  ros::Time timeCopy = this->publishedPoseTime;
+  this->publishedPoseMtx.unlock();
   
   // Build baselink to odom transform matrix
   Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
-  transform_matrix.block(0,0,3,3) = publishedPose.q.normalized().toRotationMatrix();
-  transform_matrix(0,3) = publishedPose.p[0];
-  transform_matrix(1,3) = publishedPose.p[1];
-  transform_matrix(2,3) = publishedPose.p[2];
+  transform_matrix.block(0,0,3,3) = poseCopy.q.normalized().toRotationMatrix();
+  transform_matrix(0,3) = poseCopy.p[0];
+  transform_matrix(1,3) = poseCopy.p[1];
+  transform_matrix(2,3) = poseCopy.p[2];
 
+  // Transform cloud
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
   pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud * transform_matrix.inverse());
 
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = publPoseTime;
+  deskewed_ros.header.stamp = timeCopy;
   deskewed_ros.header.frame_id = this->baselink_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }

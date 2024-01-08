@@ -265,7 +265,8 @@ struct Pose {
   Pose lidarPose;
   Pose imuPose;
   Pose publishedPose;
-  ros::Time publPoseTime;
+  ros::Time publishedPoseTime;
+  std::mutex publishedPoseMtx;
 
   // Metrics
   struct Metrics {
