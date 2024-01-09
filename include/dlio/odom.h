@@ -25,6 +25,7 @@ private:
 
   struct State;
   struct ImuMeas;
+  struct Pose;
 
   void getParams();
 
@@ -34,7 +35,7 @@ private:
   void publishPose(const ros::TimerEvent& e);
 
   void publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
-  void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud);
+  void publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose currentPose, ros::Time currentTime);
   void publishKeyframe(std::pair<std::pair<Eigen::Vector3f, Eigen::Quaternionf>,
                        pcl::PointCloud<PointType>::ConstPtr> kf, ros::Time timestamp);
 
@@ -136,7 +137,6 @@ private:
   std::string baselink_frame;
   std::string lidar_frame;
   std::string imu_frame;
-  std::string test_frame;
 
   // Preprocessing
   pcl::CropBox<PointType> crop;
@@ -257,13 +257,16 @@ private:
     Velocity v;
     ImuBias b; // imu biases in body frame
   }; State state;
-
+  
   struct Pose {
     Eigen::Vector3f p; // position in world frame
     Eigen::Quaternionf q; // orientation in world frame
   };
   Pose lidarPose;
   Pose imuPose;
+  Pose publishedPose;
+  ros::Time publishedPoseTime;
+  std::mutex publishedPoseMtx;
 
   // Metrics
   struct Metrics {

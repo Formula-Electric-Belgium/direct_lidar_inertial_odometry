@@ -172,7 +172,6 @@ void dlio::OdomNode::getParams() {
   ros::param::param<std::string>("~dlio/frames/baselink", this->baselink_frame, "base_link");
   ros::param::param<std::string>("~dlio/frames/lidar", this->lidar_frame, "lidar");
   ros::param::param<std::string>("~dlio/frames/imu", this->imu_frame, "imu");
-  ros::param::param<std::string>("~dlio/frames/test", this->test_frame, "test");
 
   // Get Node NS and Remove Leading Character
   std::string ns = ros::this_node::getNamespace();
@@ -314,6 +313,13 @@ void dlio::OdomNode::start() {
 }
 
 void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
+  
+  // Copy the current state for synchronisation with SLAM
+  publishedPoseMtx.lock();
+  this->publishedPose.p = this->state.p;
+  this->publishedPose.q = this->state.q;
+  this->publishedPoseTime = this->imu_stamp;
+  publishedPoseMtx.unlock();
 
   // nav_msgs::Odometry
   this->odom_ros.header.stamp = this->imu_stamp;
@@ -357,7 +363,16 @@ void dlio::OdomNode::publishPose(const ros::TimerEvent& e) {
 }
 
 void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
-  this->publishCloud(published_cloud, T_cloud);
+  
+  // Copy published pose and time to avoid change during transform (takes long)
+  Pose poseCopy;
+  this->publishedPoseMtx.lock();
+  poseCopy.p = this->publishedPose.p;
+  poseCopy.q = this->publishedPose.q;
+  ros::Time timeCopy = this->publishedPoseTime;
+  this->publishedPoseMtx.unlock();
+  
+  this->publishCloud(published_cloud, T_cloud, poseCopy, timeCopy);
 
   // nav_msgs::Path
   this->path_ros.header.stamp = this->imu_stamp;
@@ -373,7 +388,7 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   p.pose.orientation.x = this->state.q.x();
   p.pose.orientation.y = this->state.q.y();
   p.pose.orientation.z = this->state.q.z();
-
+  
   this->path_ros.poses.push_back(p);
   this->path_pub.publish(this->path_ros);
 
@@ -381,23 +396,23 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   static tf2_ros::TransformBroadcaster br;
   geometry_msgs::TransformStamped transformStamped;
 
-  transformStamped.header.stamp = this->imu_stamp;
+  transformStamped.header.stamp = timeCopy;
   transformStamped.header.frame_id = this->odom_frame;
   transformStamped.child_frame_id = this->baselink_frame;
 
-  transformStamped.transform.translation.x = this->state.p[0];
-  transformStamped.transform.translation.y = this->state.p[1];
-  transformStamped.transform.translation.z = this->state.p[2];
+  transformStamped.transform.translation.x = poseCopy.p[0];
+  transformStamped.transform.translation.y = poseCopy.p[1];
+  transformStamped.transform.translation.z = poseCopy.p[2];
 
-  transformStamped.transform.rotation.w = this->state.q.w();
-  transformStamped.transform.rotation.x = this->state.q.x();
-  transformStamped.transform.rotation.y = this->state.q.y();
-  transformStamped.transform.rotation.z = this->state.q.z();
+  transformStamped.transform.rotation.w = poseCopy.q.w();
+  transformStamped.transform.rotation.x = poseCopy.q.x();
+  transformStamped.transform.rotation.y = poseCopy.q.y();
+  transformStamped.transform.rotation.z = poseCopy.q.z();
 
   br.sendTransform(transformStamped);
 
   // transform: baselink to imu
-  transformStamped.header.stamp = this->imu_stamp;
+  transformStamped.header.stamp = timeCopy;
   transformStamped.header.frame_id = this->baselink_frame;
   transformStamped.child_frame_id = this->imu_frame;
 
@@ -414,7 +429,7 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   br.sendTransform(transformStamped);
 
   // transform: baselink to lidar
-  transformStamped.header.stamp = this->imu_stamp;
+  transformStamped.header.stamp = timeCopy;
   transformStamped.header.frame_id = this->baselink_frame;
   transformStamped.child_frame_id = this->lidar_frame;
 
@@ -429,37 +444,30 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.transform.rotation.z = qq.z();
 
   br.sendTransform(transformStamped);
-  
-  // transform: odom to test_frame
-  transformStamped.header.stamp = this->scan_header_stamp;
-  transformStamped.header.frame_id = this->odom_frame;
-  transformStamped.child_frame_id = this->test_frame;
-
-  transformStamped.transform.translation.x = this->lidarPose.p[0];
-  transformStamped.transform.translation.y = this->lidarPose.p[1];
-  transformStamped.transform.translation.z = this->lidarPose.p[2];
-
-  transformStamped.transform.rotation.w = this->lidarPose.q.w();
-  transformStamped.transform.rotation.x = this->lidarPose.q.x();
-  transformStamped.transform.rotation.y = this->lidarPose.q.y();
-  transformStamped.transform.rotation.z = this->lidarPose.q.z();
-
-  br.sendTransform(transformStamped);
 }
 
-void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud) {
+void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published_cloud, Eigen::Matrix4f T_cloud, Pose currentPose, ros::Time currentTime) {
 
   if (this->wait_until_move_) {
     if (this->length_traversed < 0.1) { return; }
   }
+  
+  // Build baselink to odom transform matrix
+  Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
+  transform_matrix.block(0,0,3,3) = currentPose.q.normalized().toRotationMatrix();
+  transform_matrix(0,3) = currentPose.p[0];
+  transform_matrix(1,3) = currentPose.p[1];
+  transform_matrix(2,3) = currentPose.p[2];
 
+  // Transform cloud
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
-  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud);
+  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud * transform_matrix.inverse());
+
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = this->scan_header_stamp;
-  deskewed_ros.header.frame_id = this->test_frame;
+  deskewed_ros.header.stamp = currentTime;
+  deskewed_ros.header.frame_id = this->baselink_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }
 
@@ -792,13 +800,7 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
     published_cloud = this->deskewed_scan;
   }
   
-  Eigen::Matrix4f lidar_transform = Eigen::Matrix4f::Identity();
-  lidar_transform.block(0,0,3,3) = this->lidarPose.q.normalized().toRotationMatrix();
-  lidar_transform(0,3) = this->lidarPose.p[0];
-  lidar_transform(1,3) = this->lidarPose.p[1];
-  lidar_transform(2,3) = this->lidarPose.p[2];
-  
-  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr*lidar_transform.inverse() );
+  this->publish_thread = std::thread( &dlio::OdomNode::publishToROS, this, published_cloud, this->T_corr);
   this->publish_thread.detach();
 
   // Update some statistics
