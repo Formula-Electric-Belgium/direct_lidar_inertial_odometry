@@ -172,7 +172,6 @@ void dlio::OdomNode::getParams() {
   ros::param::param<std::string>("~dlio/frames/baselink", this->baselink_frame, "base_link");
   ros::param::param<std::string>("~dlio/frames/lidar", this->lidar_frame, "lidar");
   ros::param::param<std::string>("~dlio/frames/imu", this->imu_frame, "imu");
-  ros::param::param<std::string>("~dlio/frames/test", this->test_frame, "test");
 
   // Get Node NS and Remove Leading Character
   std::string ns = ros::this_node::getNamespace();
@@ -443,22 +442,6 @@ void dlio::OdomNode::publishToROS(pcl::PointCloud<PointType>::ConstPtr published
   transformStamped.transform.rotation.x = qq.x();
   transformStamped.transform.rotation.y = qq.y();
   transformStamped.transform.rotation.z = qq.z();
-
-  br.sendTransform(transformStamped);
-  
-  // transform: odom to test_frame
-  transformStamped.header.stamp = this->scan_header_stamp;
-  transformStamped.header.frame_id = this->odom_frame;
-  transformStamped.child_frame_id = this->test_frame;
-
-  transformStamped.transform.translation.x = this->lidarPose.p[0];
-  transformStamped.transform.translation.y = this->lidarPose.p[1];
-  transformStamped.transform.translation.z = this->lidarPose.p[2];
-
-  transformStamped.transform.rotation.w = this->lidarPose.q.w();
-  transformStamped.transform.rotation.x = this->lidarPose.q.x();
-  transformStamped.transform.rotation.y = this->lidarPose.q.y();
-  transformStamped.transform.rotation.z = this->lidarPose.q.z();
 
   br.sendTransform(transformStamped);
 }
