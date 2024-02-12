@@ -452,22 +452,15 @@ void dlio::OdomNode::publishCloud(pcl::PointCloud<PointType>::ConstPtr published
     if (this->length_traversed < 0.1) { return; }
   }
   
-  // Build baselink to odom transform matrix
-  Eigen::Matrix4f transform_matrix = Eigen::Matrix4f::Identity();
-  transform_matrix.block(0,0,3,3) = currentPose.q.normalized().toRotationMatrix();
-  transform_matrix(0,3) = currentPose.p[0];
-  transform_matrix(1,3) = currentPose.p[1];
-  transform_matrix(2,3) = currentPose.p[2];
-
   // Transform cloud
   pcl::PointCloud<PointType>::Ptr deskewed_scan_t_ (boost::make_shared<pcl::PointCloud<PointType>>());
-  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud * transform_matrix.inverse());
-
+  pcl::transformPointCloud (*published_cloud, *deskewed_scan_t_, T_cloud);
+  
   // published deskewed cloud
   sensor_msgs::PointCloud2 deskewed_ros;
   pcl::toROSMsg(*deskewed_scan_t_, deskewed_ros);
-  deskewed_ros.header.stamp = currentTime;
-  deskewed_ros.header.frame_id = this->baselink_frame;
+  deskewed_ros.header.stamp = this->scan_header_stamp;
+  deskewed_ros.header.frame_id = this->odom_frame;
   this->deskewed_pub.publish(deskewed_ros);
 }
 
