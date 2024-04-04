@@ -23,15 +23,15 @@ dlio:
     dense:
       filtered: false
     sparse:
-      frequency: 1.0
       leafSize: 0.25
 
   odom:
 
     gravity: 9.80665
+    computeTimeOffset: true
 
     imu:
-      approximateGravity: false
+      approximateGravity: true
       calibration:
         gyro: true
         accel: true

@@ -189,6 +189,9 @@ void dlio::OdomNode::getParams() {
   // Gravity
   ros::param::param<double>("~dlio/odom/gravity", this->gravity_, 9.80665);
 
+  // Compute time offset between lidar and imu
+  ros::param::param<bool>("~dlio/odom/computeTimeOffset", this->time_offset_, false);
+
   // Keyframe Threshold
   ros::param::param<double>("~dlio/odom/keyframe/threshD", this->keyframe_thresh_dist_, 0.1);
   ros::param::param<double>("~dlio/odom/keyframe/threshR", this->keyframe_thresh_rot_, 1.0);
@@ -600,8 +603,16 @@ void dlio::OdomNode::deskewPointcloud() {
   // extract timestamps from points and put them in their own list
   std::vector<double> timestamps;
   std::vector<int> unique_time_indices;
+
+  // compute offset between sweep reference time and first point timestamp
+  double offset = 0.0;
+  if (this->time_offset_) {
+    offset = sweep_ref_time - extract_point_time(*points_unique_timestamps.begin());
+  }
+
+  // build list of unique timestamps and indices of first point with each timestamp
   for (auto it = points_unique_timestamps.begin(); it != points_unique_timestamps.end(); it++) {
-    timestamps.push_back(extract_point_time(*it));
+    timestamps.push_back(extract_point_time(*it) + offset);
     unique_time_indices.push_back(it->index());
   }
   unique_time_indices.push_back(deskewed_scan_->points.size());
