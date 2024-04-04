@@ -19,7 +19,7 @@ dlio:
     imu: imu
 
   map:
-    waitUntilMove: false
+    waitUntilMove: true
     dense:
       filtered: false
     sparse:
@@ -31,7 +31,7 @@ dlio:
     gravity: 9.80665
 
     imu:
-      approximateGravity: true
+      approximateGravity: false
       calibration:
         gyro: true
         accel: true
