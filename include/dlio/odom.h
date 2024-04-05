@@ -30,6 +30,7 @@ private:
 
   void callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& pc);
   void callbackImu(const sensor_msgs::Imu::ConstPtr& imu);
+  void callbackCarState(const car_status_msgs::ASFSMStateConstPtr& msg);
 
   void publishPose(const ros::TimerEvent& e);
 
@@ -88,6 +89,7 @@ private:
   // Subscribers
   ros::Subscriber lidar_sub;
   ros::Subscriber imu_sub;
+  ros::Subscriber car_state_sub;
 
   // Publishers
   ros::Publisher odom_pub;
@@ -274,6 +276,9 @@ private:
   std::vector<double> cpu_percents;
   clock_t lastCPU, lastSysCPU, lastUserCPU;
   int numProcessors;
+
+  // AS fsm
+  uint8_t car_state;
 
   // Parameters
   std::string version_;

@@ -46,6 +46,7 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   message_generation
   ouster_ros
+  car_status_msgs
 )
 
 add_service_files(

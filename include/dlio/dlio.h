@@ -76,7 +76,10 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 // DLIO
 #include <nano_gicp/nano_gicp.h>
 #include <direct_lidar_inertial_odometry/save_pcd.h>
+
+// FEB
 #include <ouster_ros/os_point.h>
+#include <car_status_msgs/ASFSMState.h>
 
 namespace dlio {
   class OdomNode;

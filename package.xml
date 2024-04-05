@@ -25,6 +25,7 @@
   <depend>nav_msgs</depend>
   <depend>pcl_ros</depend>
   <depend>ouster_ros</depend>
+  <depend>car_status_msgs</depend>
   <build_depend>message_generation</build_depend>
   <exec_depend>message_runtime</exec_depend>
 
