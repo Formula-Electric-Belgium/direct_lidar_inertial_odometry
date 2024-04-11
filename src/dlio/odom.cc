@@ -25,7 +25,7 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   else {this->imu_calibrated = true;}
   this->deskew_status = false;
   this->deskew_size = 0;
-  this->car_state = 0;
+  this->car_state = car_status_msgs::ASFSMStateEnum::AS_OFF;
 
   this->lidar_sub = this->nh.subscribe("pointcloud", 1,
       &dlio::OdomNode::callbackPointCloud, this, ros::TransportHints().tcpNoDelay());
