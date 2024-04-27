@@ -79,7 +79,7 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 
 // FEB
 #include <ouster_ros/os_point.h>
-#include <car_status_msgs/ASFSMState.h>
+#include <car_status_msgs/DVState.h>
 
 namespace dlio {
   class OdomNode;

@@ -25,7 +25,7 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   else {this->imu_calibrated = true;}
   this->deskew_status = false;
   this->deskew_size = 0;
-  this->car_state = car_status_msgs::ASFSMStateEnum::AS_OFF;
+  this->car_state = car_status_msgs::DVStateEnum::OFF;
 
   this->lidar_sub = this->nh.subscribe("pointcloud", 1,
       &dlio::OdomNode::callbackPointCloud, this, ros::TransportHints().tcpNoDelay());
@@ -706,9 +706,9 @@ void dlio::OdomNode::initializeDLIO() {
 }
 
 void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& pc) {
-  if (this->car_state == car_status_msgs::ASFSMStateEnum::AS_OFF ||  this->car_state == car_status_msgs::ASFSMStateEnum::AS_READY){
-    return;
-  }
+  
+  // Internal state is still off, wait until DRIVING
+  if (this->car_state == car_status_msgs::DVStateEnum::OFF) { return; }
 
   std::unique_lock<decltype(this->main_loop_running_mutex)> lock(main_loop_running_mutex);
   this->main_loop_running = true;
@@ -811,9 +811,9 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& 
 }
 
 void dlio::OdomNode::callbackImu(const sensor_msgs::Imu::ConstPtr& imu_raw) {
-  if (this->car_state == car_status_msgs::ASFSMStateEnum::AS_OFF ||  this->car_state == car_status_msgs::ASFSMStateEnum::AS_READY){
-    return;
-  }
+  
+  // Internal state is still off, wait for DRIVING before continuing
+  if (this->car_state == car_status_msgs::DVStateEnum::OFF) { return; }
 
   this->first_imu_received = true;
 
@@ -958,7 +958,7 @@ void dlio::OdomNode::callbackImu(const sensor_msgs::Imu::ConstPtr& imu_raw) {
 
 }
 
-void dlio::OdomNode::callbackCarState(const car_status_msgs::ASFSMStateConstPtr& msg){
+void dlio::OdomNode::callbackCarState(const car_status_msgs::DVStateConstPtr& msg) {
   this->car_state = msg->state;
 }
 

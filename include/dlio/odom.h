@@ -30,7 +30,7 @@ private:
 
   void callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& pc);
   void callbackImu(const sensor_msgs::Imu::ConstPtr& imu);
-  void callbackCarState(const car_status_msgs::ASFSMStateConstPtr& msg);
+  void callbackCarState(const car_status_msgs::DVStateConstPtr& msg);
 
   void publishPose(const ros::TimerEvent& e);
 
