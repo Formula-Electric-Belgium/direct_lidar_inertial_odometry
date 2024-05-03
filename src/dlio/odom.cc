@@ -31,7 +31,7 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
       &dlio::OdomNode::callbackPointCloud, this, ros::TransportHints().tcpNoDelay());
   this->imu_sub = this->nh.subscribe("imu", 1000,
       &dlio::OdomNode::callbackImu, this, ros::TransportHints().tcpNoDelay());
-  this->car_state_sub = this->nh.subscribe("/as_state", 1,
+  this->car_state_sub = this->nh.subscribe("/mission_manager/dv_state", 1,
       &dlio::OdomNode::callbackCarState, this);
 
   this->odom_pub     = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
