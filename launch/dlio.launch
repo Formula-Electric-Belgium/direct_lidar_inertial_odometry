@@ -36,6 +36,7 @@
     <remap from="~kf_pose"  to="dlio/odom_node/keyframes"/>
     <remap from="~kf_cloud" to="dlio/odom_node/pointcloud/keyframe"/>
     <remap from="~deskewed" to="dlio/odom_node/pointcloud/deskewed"/>
+    <remap from="~mem_usage" to="dlio/odom_node/mem_usage"/>
 
   </node>
 

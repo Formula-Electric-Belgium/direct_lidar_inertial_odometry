@@ -98,6 +98,7 @@ private:
   ros::Publisher kf_pose_pub;
   ros::Publisher kf_cloud_pub;
   ros::Publisher deskewed_pub;
+  ros::Publisher mem_usage_pub;
 
   // ROS Msgs
   nav_msgs::Odometry odom_ros;

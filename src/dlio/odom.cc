@@ -34,12 +34,13 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   this->car_state_sub = this->nh.subscribe("/mission_manager/dv_state", 1,
       &dlio::OdomNode::callbackCarState, this);
 
-  this->odom_pub     = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
-  this->pose_pub     = this->nh.advertise<geometry_msgs::PoseStamped>("pose", 1, true);
-  this->path_pub     = this->nh.advertise<nav_msgs::Path>("path", 1, true);
-  this->kf_pose_pub  = this->nh.advertise<geometry_msgs::PoseArray>("kf_pose", 1, true);
-  this->kf_cloud_pub = this->nh.advertise<sensor_msgs::PointCloud2>("kf_cloud", 1, true);
-  this->deskewed_pub = this->nh.advertise<sensor_msgs::PointCloud2>("deskewed", 1, true);
+  this->odom_pub      = this->nh.advertise<nav_msgs::Odometry>("odom", 1, true);
+  this->pose_pub      = this->nh.advertise<geometry_msgs::PoseStamped>("pose", 1, true);
+  this->path_pub      = this->nh.advertise<nav_msgs::Path>("path", 1, true);
+  this->kf_pose_pub   = this->nh.advertise<geometry_msgs::PoseArray>("kf_pose", 1, true);
+  this->kf_cloud_pub  = this->nh.advertise<sensor_msgs::PointCloud2>("kf_cloud", 1, true);
+  this->deskewed_pub  = this->nh.advertise<sensor_msgs::PointCloud2>("deskewed", 1, true);
+  this->mem_usage_pub = this->nh.advertise<std_msgs::Float32>("mem_usage", 1, true);
 
   this->publish_timer = this->nh.createTimer(ros::Duration(0.01), &dlio::OdomNode::publishPose, this);
 
@@ -1828,6 +1829,11 @@ void dlio::OdomNode::debug() {
   vm_usage = vsize / 1024.0;
   resident_set = rss * page_size_kb;
 
+  // Publish the memory usage for logging purposes - resident_set is in KB as page size is expressed in KB, convert to MB
+  std_msgs::Float32 msg;
+  msg.data = resident_set / 1000;
+  this->mem_usage_pub.publish(msg);
+
   // CPU Usage
   struct tms timeSample;
   clock_t now;
@@ -1850,7 +1856,7 @@ void dlio::OdomNode::debug() {
     std::accumulate(this->cpu_percents.begin(), this->cpu_percents.end(), 0.0) / this->cpu_percents.size();
 
   // Print to terminal
-  printf("\033[2J\033[1;1H");
+  /*printf("\033[2J\033[1;1H");
 
   std::cout << std::endl
             << "+-------------------------------------------------------------------+" << std::endl;
@@ -1948,6 +1954,6 @@ void dlio::OdomNode::debug() {
     << "RAM Allocation   :: " + to_string_with_precision(resident_set/1000., 2) + " MB"
     << "|" << std::endl;
 
-  std::cout << "+-------------------------------------------------------------------+" << std::endl;
+  std::cout << "+-------------------------------------------------------------------+" << std::endl;*/
 
 }
