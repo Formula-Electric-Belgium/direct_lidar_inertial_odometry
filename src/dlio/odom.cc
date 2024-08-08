@@ -1850,7 +1850,7 @@ void dlio::OdomNode::debug() {
     std::accumulate(this->cpu_percents.begin(), this->cpu_percents.end(), 0.0) / this->cpu_percents.size();
 
   // Print to terminal
-  printf("\033[2J\033[1;1H");
+  /*printf("\033[2J\033[1;1H");
 
   std::cout << std::endl
             << "+-------------------------------------------------------------------+" << std::endl;
@@ -1948,6 +1948,6 @@ void dlio::OdomNode::debug() {
     << "RAM Allocation   :: " + to_string_with_precision(resident_set/1000., 2) + " MB"
     << "|" << std::endl;
 
-  std::cout << "+-------------------------------------------------------------------+" << std::endl;
+  std::cout << "+-------------------------------------------------------------------+" << std::endl;*/
 
 }
