@@ -308,7 +308,12 @@ private:
   bool densemap_filtered_;
   bool wait_until_move_;
 
-  double crop_size_;
+  double min_x_;
+  double min_y_;
+  double min_z_;
+  double max_x_;
+  double max_y_;
+  double max_z_;
 
   bool vf_use_;
   double vf_res_;

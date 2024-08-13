@@ -116,8 +116,8 @@ dlio::OdomNode::OdomNode(ros::NodeHandle node_handle) : nh(node_handle) {
   pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
 
   this->crop.setNegative(true);
-  this->crop.setMin(Eigen::Vector4f(-this->crop_size_, -this->crop_size_, -this->crop_size_, 1.0));
-  this->crop.setMax(Eigen::Vector4f(this->crop_size_, this->crop_size_, this->crop_size_, 1.0));
+  this->crop.setMin(Eigen::Vector4f(this->min_x_, this->min_y_, this->min_z_, 1.0));
+  this->crop.setMax(Eigen::Vector4f(this->max_x_, this->max_y_, this->max_z_, 1.0));
 
   this->voxel.setLeafSize(this->vf_res_, this->vf_res_, this->vf_res_);
 
@@ -212,7 +212,12 @@ void dlio::OdomNode::getParams() {
   ros::param::param<bool>("~dlio/map/waitUntilMove", this->wait_until_move_, false);
 
   // Crop Box Filter
-  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/size", this->crop_size_, 1.0);
+  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/min_x", this->min_x_, 1.0);
+  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/min_y", this->min_y_, 1.0);
+  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/min_z", this->min_z_, 1.0);
+  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/max_x", this->max_x_, 1.0);
+  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/max_y", this->max_y_, 1.0);
+  ros::param::param<double>("~dlio/odom/preprocessing/cropBoxFilter/max_z", this->max_z_, 1.0);
 
   // Voxel Grid Filter
   ros::param::param<bool>("~dlio/pointcloud/voxelize", this->vf_use_, true);
