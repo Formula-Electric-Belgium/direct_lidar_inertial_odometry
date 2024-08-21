@@ -297,16 +297,21 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "odom/gicp/initLambdaFactor", this->gicp_init_lambda_factor_, 1e-9);
 
   // Geometric Observer
-  dlio::declare_param(this, "odom/geo/Kp", this->geo_Kp_, 1.0);
-  dlio::declare_param(this, "odom/geo/Kv", this->geo_Kv_, 1.0);
-  dlio::declare_param(this, "odom/geo/Kq", this->geo_Kq_, 1.0);
-  dlio::declare_param(this, "odom/geo/Kab", this->geo_Kab_, 1.0);
-  dlio::declare_param(this, "odom/geo/Kgb", this->geo_Kgb_, 1.0);
-  dlio::declare_param(this, "odom/geo/abias_max", this->geo_abias_max_, 1.0);
-  dlio::declare_param(this, "odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/Kp", this->geo_Kp_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/Kv", this->geo_Kv_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/Kq", this->geo_Kq_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/Kab", this->geo_Kab_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/Kgb", this->geo_Kgb_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/abias_max", this->geo_abias_max_, 1.0);
+  ros::param::param<double>("~dlio/odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
+
+  ros::param::param<bool>("~dlio/verbose", this->verbose, true);
 }
 
 void dlio::OdomNode::start() {
+  if (!this->verbose) {
+    return;
+  }
 
   printf("\033[2J\033[1;1H");
   std::cout << std::endl
@@ -796,11 +801,12 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::msg::PointCloud2::Sha
   this->gicp_hasConverged = this->gicp.hasConverged();
 
   // Debug statements and publish custom DLIO message
-  this->debug_thread = std::thread( &dlio::OdomNode::debug, this );
-  this->debug_thread.detach();
-
+  if (this->verbose) {
+    this->debug_thread = std::thread( &dlio::OdomNode::debug, this );
+    this->debug_thread.detach();
+  }
+  
   this->geo.first_opt_done = true;
-
 }
 
 void dlio::OdomNode::callbackImu(const sensor_msgs::msg::Imu::SharedPtr imu_raw) {
