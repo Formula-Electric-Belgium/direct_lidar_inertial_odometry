@@ -14,7 +14,9 @@ cmake_minimum_required(VERSION 3.12.4)
 project(direct_lidar_inertial_odometry)
 
 add_compile_options(-std=c++14)
-set(CMAKE_BUILD_TYPE "Release")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
 find_package( PCL REQUIRED )
 include_directories(${PCL_INCLUDE_DIRS})
@@ -24,7 +26,7 @@ link_directories(${PCL_LIBRARY_DIRS})
 find_package( Eigen3 REQUIRED )
 include_directories(${EIGEN3_INCLUDE_DIR})
 
-include(FindOpenMP)
+find_package(OpenMP)
 if(OPENMP_FOUND)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -70,6 +72,9 @@ catkin_package(
     geometry_msgs
     pcl_ros
     message_runtime
+    ouster_ros
+    car_status_msgs
+    nav_msgs
   INCLUDE_DIRS
     include
   LIBRARIES
@@ -80,6 +85,10 @@ catkin_package(
 
 include_directories(include)
 include_directories(SYSTEM ${catkin_INCLUDE_DIRS})
+install(DIRECTORY include
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  PATTERN ".svn" EXCLUDE
+)
 
 # Not all machines have <cpuid.h> available
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
@@ -96,6 +105,7 @@ add_library(nanoflann STATIC
 )
 target_link_libraries(nanoflann ${PCL_LIBRARIES})
 add_dependencies(nanoflann ${catkin_EXPORTED_TARGETS})
+install(TARGETS nanoflann LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 
 # NanoGICP
 add_library(nano_gicp STATIC
@@ -103,6 +113,7 @@ add_library(nano_gicp STATIC
   src/nano_gicp/nano_gicp.cc
 )
 target_link_libraries(nano_gicp ${PCL_LIBRARIES} ${OpenMP_LIBS} nanoflann)
+install(TARGETS nano_gicp LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 
 # Odometry Node
 add_executable(dlio_odom_node src/dlio/odom_node.cc src/dlio/odom.cc)
