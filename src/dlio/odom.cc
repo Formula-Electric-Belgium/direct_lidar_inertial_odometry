@@ -576,8 +576,12 @@ void dlio::OdomNode::preprocessPoints() {
 
 void dlio::OdomNode::deskewPointcloud() {
 
-  pcl::PointCloud<PointType>::Ptr deskewed_scan_ = std::make_shared<pcl::PointCloud<PointType>>(1, this->original_scan->points.size());
-  // deskewed_scan_->points.resize(this->original_scan->points.size());
+  pcl::PointCloud<PointType>::Ptr deskewed_scan_ (boost::make_shared<pcl::PointCloud<PointType>>());
+  deskewed_scan_->points.resize(this->original_scan->points.size());
+  if(original_scan->points.size() == 0) {
+    return;
+  }
+
   // individual point timestamps should be relative to this time
   double sweep_ref_time = rclcpp::Time(this->scan_header_stamp).seconds();
 
