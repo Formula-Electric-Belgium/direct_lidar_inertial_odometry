@@ -297,15 +297,15 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "odom/gicp/initLambdaFactor", this->gicp_init_lambda_factor_, 1e-9);
 
   // Geometric Observer
-  ros::param::param<double>("~dlio/odom/geo/Kp", this->geo_Kp_, 1.0);
-  ros::param::param<double>("~dlio/odom/geo/Kv", this->geo_Kv_, 1.0);
-  ros::param::param<double>("~dlio/odom/geo/Kq", this->geo_Kq_, 1.0);
-  ros::param::param<double>("~dlio/odom/geo/Kab", this->geo_Kab_, 1.0);
-  ros::param::param<double>("~dlio/odom/geo/Kgb", this->geo_Kgb_, 1.0);
-  ros::param::param<double>("~dlio/odom/geo/abias_max", this->geo_abias_max_, 1.0);
-  ros::param::param<double>("~dlio/odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/Kp", this->geo_Kp_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/Kv", this->geo_Kv_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/Kq", this->geo_Kq_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/Kab", this->geo_Kab_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/Kgb", this->geo_Kgb_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/abias_max", this->geo_abias_max_, 1.0);
+  dlio::declare_param(this, "~dlio/odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
 
-  ros::param::param<bool>("~dlio/verbose", this->verbose, true);
+  dlio::declare_param(this, "~dlio/verbose", this->verbose, true);
 }
 
 void dlio::OdomNode::start() {
@@ -576,7 +576,7 @@ void dlio::OdomNode::preprocessPoints() {
 
 void dlio::OdomNode::deskewPointcloud() {
 
-  pcl::PointCloud<PointType>::Ptr deskewed_scan_ (boost::make_shared<pcl::PointCloud<PointType>>());
+  pcl::PointCloud<PointType>::Ptr deskewed_scan_ (std::make_shared<pcl::PointCloud<PointType>>());
   deskewed_scan_->points.resize(this->original_scan->points.size());
   if(original_scan->points.size() == 0) {
     return;

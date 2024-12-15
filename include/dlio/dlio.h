@@ -51,4 +51,9 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 // DLIO
 #include <nano_gicp/nano_gicp.h>
 
+namespace dlio {
+  class OdomNode;
+  class MapNode;
+}
+
 typedef ouster_ros::Point PointType;
