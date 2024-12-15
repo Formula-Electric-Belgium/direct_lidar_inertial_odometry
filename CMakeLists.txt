@@ -20,6 +20,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(pcl_ros REQUIRED)
+find_package(ouster_ros REQUIRED)
 
 find_package(PCL REQUIRED)
 find_package( Eigen3 REQUIRED )
