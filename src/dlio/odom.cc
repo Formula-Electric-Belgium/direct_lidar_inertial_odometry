@@ -127,8 +127,8 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   pcl::console::setVerbosityLevel(pcl::console::L_ERROR);
 
   this->crop.setNegative(true);
-  this->crop.setMin(Eigen::Vector4f(-this->crop_size_, -this->crop_size_, -this->crop_size_, 1.0));
-  this->crop.setMax(Eigen::Vector4f(this->crop_size_, this->crop_size_, this->crop_size_, 1.0));
+  this->crop.setMin(Eigen::Vector4f(this->min_x_, this->min_y_, this->min_z_, 1.0));
+  this->crop.setMax(Eigen::Vector4f(this->max_x_, this->max_y_, this->max_z_, 1.0));
 
   this->voxel.setLeafSize(this->vf_res_, this->vf_res_, this->vf_res_);
 
@@ -210,10 +210,16 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "map/dense/filtered", this->densemap_filtered_, true);
 
   // Wait until movement to publish map
-  dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, false);
+  dlio::declare_param(this, "map/waitUntilMove", this->wait_until_move_, true);
+  RCLCPP_INFO(this->get_logger(), "Wait until move: %d", this->wait_until_move_);
 
   // Crop Box Filter
-  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/size", this->crop_size_, 1.0);
+  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/min_x", this->min_x_, 1.0);
+  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/min_y", this->min_y_, 1.0);
+  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/min_z", this->min_z_, 1.0);
+  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/max_x", this->max_x_, 1.0);
+  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/max_y", this->max_y_, 1.0);
+  dlio::declare_param(this, "odom/preprocessing/cropBoxFilter/max_z", this->max_z_, 1.0);
 
   // Voxel Grid Filter
   dlio::declare_param(this, "pointcloud/voxelize", this->vf_use_, true);
@@ -297,15 +303,15 @@ void dlio::OdomNode::getParams() {
   dlio::declare_param(this, "odom/gicp/initLambdaFactor", this->gicp_init_lambda_factor_, 1e-9);
 
   // Geometric Observer
-  dlio::declare_param(this, "~dlio/odom/geo/Kp", this->geo_Kp_, 1.0);
-  dlio::declare_param(this, "~dlio/odom/geo/Kv", this->geo_Kv_, 1.0);
-  dlio::declare_param(this, "~dlio/odom/geo/Kq", this->geo_Kq_, 1.0);
-  dlio::declare_param(this, "~dlio/odom/geo/Kab", this->geo_Kab_, 1.0);
-  dlio::declare_param(this, "~dlio/odom/geo/Kgb", this->geo_Kgb_, 1.0);
-  dlio::declare_param(this, "~dlio/odom/geo/abias_max", this->geo_abias_max_, 1.0);
-  dlio::declare_param(this, "~dlio/odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
+  dlio::declare_param(this, "odom/geo/Kp", this->geo_Kp_, 1.0);
+  dlio::declare_param(this, "odom/geo/Kv", this->geo_Kv_, 1.0);
+  dlio::declare_param(this, "odom/geo/Kq", this->geo_Kq_, 1.0);
+  dlio::declare_param(this, "odom/geo/Kab", this->geo_Kab_, 1.0);
+  dlio::declare_param(this, "odom/geo/Kgb", this->geo_Kgb_, 1.0);
+  dlio::declare_param(this, "odom/geo/abias_max", this->geo_abias_max_, 1.0);
+  dlio::declare_param(this, "odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
 
-  dlio::declare_param(this, "~dlio/verbose", this->verbose, true);
+  dlio::declare_param(this, "verbose", this->verbose, true);
 }
 
 void dlio::OdomNode::start() {
