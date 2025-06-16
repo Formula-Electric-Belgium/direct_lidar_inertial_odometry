@@ -27,6 +27,7 @@
   <depend>pcl_ros</depend>
   <depend>rclcpp</depend>
   <depend>ouster_ros</depend>
+  <depend>car_status_msgs</depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
 
   <export>

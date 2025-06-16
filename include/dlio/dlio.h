@@ -32,6 +32,8 @@
 #include <sys/times.h>
 #include <thread>
 #include <ouster_ros/os_point.h>
+#include <car_status_msgs/msg/dv_state.hpp>
+#include <car_status_msgs/msg/dv_state_enum.hpp>
 
 template <typename T>
 std::string to_string_with_precision(const T a_value, const int n = 6)

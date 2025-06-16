@@ -56,6 +56,7 @@ private:
 
   void callbackPointCloud(const sensor_msgs::msg::PointCloud2::SharedPtr pc);
   void callbackImu(const sensor_msgs::msg::Imu::SharedPtr imu);
+  void callbackCarState(const car_status_msgs::msg::DVState::SharedPtr msg); 
 
   void publishPose();
 
@@ -113,6 +114,7 @@ private:
   // Subscribers
   rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr lidar_sub;
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_sub;
+  rclcpp::Subscription<car_status_msgs::msg::DVState>::SharedPtr dv_state_sub;
   rclcpp::CallbackGroup::SharedPtr lidar_cb_group, imu_cb_group;
 
   // Publishers
@@ -131,6 +133,7 @@ private:
   geometry_msgs::msg::PoseStamped pose_ros;
   nav_msgs::msg::Path path_ros;
   geometry_msgs::msg::PoseArray kf_pose_ros;
+  uint8_t car_state; 
 
   // Flags
   std::atomic<bool> dlio_initialized;
