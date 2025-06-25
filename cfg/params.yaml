@@ -31,12 +31,6 @@
     odom/imu/calibration/time: 3.0
     odom/imu/bufferSize: 5000
 
-    #odom/preprocessing/cropBoxFilter/min_x: -3.0
-    #odom/preprocessing/cropBoxFilter/min_y: -0.8
-    #odom/preprocessing/cropBoxFilter/min_z: -0.5
-    #odom/preprocessing/cropBoxFilter/max_x: 0.2
-    #odom/preprocessing/cropBoxFilter/max_y: 0.8
-    #odom/preprocessing/cropBoxFilter/max_z: 2.0
     odom/preprocessing/cropBoxFilter/max_x: -3.0
     odom/preprocessing/cropBoxFilter/max_y: -0.8
     odom/preprocessing/cropBoxFilter/max_z: -0.5
