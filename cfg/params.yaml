@@ -61,4 +61,4 @@
     odom/geo/abias_max: 5.0
     odom/geo/gbias_max: 0.5
 
-    verbose: false
+    verbose: true

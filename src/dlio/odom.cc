@@ -36,13 +36,13 @@ dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
   lidar_sub_opt.callback_group = this->lidar_cb_group;
   this->dv_state_sub =  this->create_subscription<car_status_msgs::msg::DVState>("/mission_manager/dv_state", rclcpp::QoS(1),
   std::bind(&dlio::OdomNode::callbackCarState, this, std::placeholders::_1));
-  this->lidar_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>("pointcloud", rclcpp::SensorDataQoS(),
+  this->lidar_sub = this->create_subscription<sensor_msgs::msg::PointCloud2>("pointcloud", 1,
   std::bind(&dlio::OdomNode::callbackPointCloud, this, std::placeholders::_1), lidar_sub_opt);
   
   this->imu_cb_group = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
   auto imu_sub_opt = rclcpp::SubscriptionOptions();
   imu_sub_opt.callback_group = this->imu_cb_group;
-  this->imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("imu", rclcpp::SensorDataQoS(),
+  this->imu_sub = this->create_subscription<sensor_msgs::msg::Imu>("imu", 1,
   std::bind(&dlio::OdomNode::callbackImu, this, std::placeholders::_1), imu_sub_opt);
   
   this->odom_pub     = this->create_publisher<nav_msgs::msg::Odometry>("odom", 1);
