@@ -17,6 +17,8 @@
 #include <cpuid.h>
 #endif
 
+#include <car_status_msgs/msg/dv_state.hpp>
+#include <car_status_msgs/msg/dv_state_enum.hpp>
 #include <ctime>
 #include <fstream>
 #include <future>
@@ -31,13 +33,9 @@
 #include <string>
 #include <sys/times.h>
 #include <thread>
-#include <ouster_ros/os_point.h>
-#include <car_status_msgs/msg/dv_state.hpp>
-#include <car_status_msgs/msg/dv_state_enum.hpp>
 
-template <typename T>
-std::string to_string_with_precision(const T a_value, const int n = 6)
-{
+template<typename T>
+std::string to_string_with_precision(const T a_value, const int n = 6) {
     std::ostringstream out;
     out.precision(n);
     out << std::fixed << a_value;
@@ -54,8 +52,29 @@ std::string to_string_with_precision(const T a_value, const int n = 6)
 #include <nano_gicp/nano_gicp.h>
 
 namespace dlio {
-  class OdomNode;
-  class MapNode;
-}
+class OdomNode;
+class MapNode;
 
-typedef ouster_ros::Point PointType;
+struct EIGEN_ALIGN16 Point {
+    Point() : data{ 0.f, 0.f, 0.f, 1.f } {}
+
+    PCL_ADD_POINT4D;
+    float intensity;
+    uint16_t ring;
+    double timestamp;
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
+} // namespace dlio
+
+// clang-format off
+POINT_CLOUD_REGISTER_POINT_STRUCT(dlio::Point,
+                                 (float, x, x)
+                                 (float, y, y)
+                                 (float, z, z)
+                                 (float, intensity, intensity)
+                                 (uint16_t, ring, ring)
+                                 (double, timestamp, timestamp))
+// clang-format on
+
+typedef dlio::Point PointType;
