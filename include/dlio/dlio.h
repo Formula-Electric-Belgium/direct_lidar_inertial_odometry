@@ -63,6 +63,7 @@ struct EIGEN_ALIGN16 Point {
     uint16_t ring;
     double timestamp;
     float range;
+    float azimuth;
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
@@ -76,7 +77,8 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(dlio::Point,
                                  (float, intensity, intensity)
                                  (uint16_t, ring, ring)
                                  (double, timestamp, timestamp)
-                                 (float, range, range))
+                                 (float, range, range)
+                                 (float, azimuth, azimuth))
 // clang-format on
 
 typedef dlio::Point PointType;

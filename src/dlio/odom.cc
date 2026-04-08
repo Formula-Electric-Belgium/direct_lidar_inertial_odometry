@@ -1353,7 +1353,7 @@ sensor_msgs::msg::Imu::SharedPtr dlio::OdomNode::transformImu(const sensor_msgs:
     // Transform linear acceleration (need to account for component due to translational difference)
     Eigen::Vector3f lin_accel(imu_raw->linear_acceleration.x,
                               imu_raw->linear_acceleration.y,
-                              imu_raw->linear_acceleration.z);
+                              -imu_raw->linear_acceleration.z);
 
     Eigen::Vector3f lin_accel_cg = this->extrinsics.baselink2imu.R * lin_accel;
 
