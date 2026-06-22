@@ -32,13 +32,16 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
+# Generate a compilation database so clangd can find headers
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Not all machines have <cpuid.h> available
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 rosidl_generate_interfaces(
     ${PROJECT_NAME}
         srv/SavePCD.srv
-    DEPENDENCIES       
+    DEPENDENCIES
 )
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} rosidl_typesupport_cpp)
@@ -81,10 +84,10 @@ ament_package()
 
 # Binaries
 install( TARGETS dlio_odom_node dlio_map_node
-         DESTINATION lib/${PROJECT_NAME} 
+         DESTINATION lib/${PROJECT_NAME}
 )
 install( DIRECTORY cfg launch
-         DESTINATION share/${PROJECT_NAME} 
+         DESTINATION share/${PROJECT_NAME}
 )
 
 add_compile_options(-std=c++14)
