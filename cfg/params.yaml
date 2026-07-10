@@ -25,7 +25,7 @@
     odom/gravity: 9.80665
     odom/computeTimeOffset: true
 
-    odom/imu/approximateGravity: true
+    odom/imu/approximateGravity: false
     odom/imu/calibration/gyro: true
     odom/imu/calibration/accel: true
     odom/imu/calibration/time: 3.0
@@ -40,7 +40,7 @@
     odom/preprocessing/voxelFilter/res: 0.25
 
     odom/keyframe/threshD: 1.0
-    odom/keyframe/threshR: 45.0
+    odom/keyframe/threshR: 22.5
 
     odom/submap/keyframe/knn: 10
     odom/submap/keyframe/kcv: 10
