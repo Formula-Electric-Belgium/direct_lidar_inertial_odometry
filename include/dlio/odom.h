@@ -41,7 +41,7 @@
 class dlio::OdomNode : public rclcpp::Node {
 
 public:
-    OdomNode();
+    OdomNode(const rclcpp::NodeOptions& options);
     ~OdomNode();
 
     void start();

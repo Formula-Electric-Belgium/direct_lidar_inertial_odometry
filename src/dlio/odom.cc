@@ -17,7 +17,7 @@
 
 #include "rclcpp/qos.hpp"
 
-dlio::OdomNode::OdomNode() : Node("dlio_odom_node") {
+dlio::OdomNode::OdomNode(const rclcpp::NodeOptions& options) : Node("dlio_odom_node", options) {
     this->getParams();
 
     this->num_threads_ = omp_get_max_threads();

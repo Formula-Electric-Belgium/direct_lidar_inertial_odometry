@@ -72,6 +72,12 @@ add_executable(dlio_odom_node src/dlio/odom_node.cc src/dlio/odom.cc)
 target_link_libraries(dlio_odom_node ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
 ament_target_dependencies(dlio_odom_node "tf2_ros" "pcl_ros" "nav_msgs" "pcl_conversions" "rclcpp" "sensor_msgs" "geometry_msgs" "car_status_msgs")
 
+# Odometry Component
+add_library(dlio_odom_component SHARED src/dlio/odom_node.cc src/dlio/odom.cc)
+target_link_libraries(dlio_odom_component ${PCL_LIBRARIES} ${OpenMP_LIBS} Threads::Threads nano_gicp)
+ament_target_dependencies(dlio_odom_component "tf2_ros" "pcl_ros" "nav_msgs" "pcl_conversions" "rclcpp" "rclcpp_components" "sensor_msgs" "geometry_msgs" "car_status_msgs")
+rclcpp_components_register_nodes(dlio_odom_component "dlio::OdomNode")
+
 # Mapping Node
 add_executable(dlio_map_node src/dlio/map_node.cc src/dlio/map.cc)
 target_link_libraries(dlio_map_node ${PCL_LIBRARIES}  ${cpp_typesupport_target})
@@ -88,6 +94,10 @@ install( TARGETS dlio_odom_node dlio_map_node
 )
 install( DIRECTORY cfg launch
          DESTINATION share/${PROJECT_NAME}
+)
+# Component
+install( TARGETS dlio_odom_component
+         LIBRARY DESTINATION lib
 )
 
 add_compile_options(-std=c++14)
