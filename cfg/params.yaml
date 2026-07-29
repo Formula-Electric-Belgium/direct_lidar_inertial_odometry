@@ -62,3 +62,5 @@
     odom/geo/gbias_max: 0.5
 
     verbose: false
+    diagnostics/warnTranslation: 2.0
+    diagnostics/warnRotationDeg: 45.0

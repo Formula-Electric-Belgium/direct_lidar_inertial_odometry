@@ -93,6 +93,31 @@ To save DLIO's generated map into `.pcd` format, call the following service:
 ros2 service call /save_pcd direct_lidar_inertial_odometry/srv/SavePCD "{'leaf_size': 0.2, 'save_path': '~/map'}"
 ```
 
+### Diagnostics
+
+The launch file publishes one structured diagnostics message per registered LiDAR
+scan on `/dlio/odom_node/diagnostics` using
+`direct_lidar_inertial_odometry/msg/DlioDiagnostics`. It includes point counts,
+scan timing, deskew status, GICP convergence/error/correspondences, Hessian
+eigenvalues, the IMU prior and GICP correction, fused state and biases, submap
+size, active adaptive thresholds, and processing time.
+
+```sh
+ros2 topic echo /dlio/odom_node/diagnostics
+```
+
+For repeatable tuning, record it alongside the raw sensors:
+
+```sh
+ros2 bag record /points_raw /imu_raw /as_state /clock \
+  /dlio/odom_node/diagnostics /dlio/odom_node/odom \
+  /dlio/odom_node/pointcloud/deskewed /tf /tf_static
+```
+
+`diagnostics/warnTranslation` and `diagnostics/warnRotationDeg` control
+throttled warnings for unusually large GICP corrections. These warnings are
+observational only and do not reject or alter a registration result.
+
 ### Test Data
 For your convenience, we provide test data [here](https://drive.google.com/file/d/1Sp_Mph4rekXKY2euxYxv6SD6WIzB-wVU/view?usp=sharing) (1.2GB, 1m 13s, Ouster OS1-32) of an aggressive motion to test our motion correction scheme, and [here](https://drive.google.com/file/d/1HbmF5gTHxCAMqBkEd5PTxDNQvcI8tKXn/view?usp=sharing) (16.5GB, 4m 21s, Ouster OSDome) of a longer trajectory outside with lots of trees. Try these two datasets with both deskewing on and off!
 

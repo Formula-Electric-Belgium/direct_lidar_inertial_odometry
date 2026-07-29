@@ -14,6 +14,7 @@
 
 // ROS
 #include "rclcpp/rclcpp.hpp"
+#include "direct_lidar_inertial_odometry/msg/dlio_diagnostics.hpp"
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
@@ -105,6 +106,7 @@ private:
     void pauseSubmapBuildIfNeeded();
 
     void debug();
+    void publishDiagnostics(bool keyframe_created, double processing_time);
 
     rclcpp::TimerBase::SharedPtr publish_timer;
 
@@ -121,6 +123,7 @@ private:
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr kf_pose_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr kf_cloud_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr deskewed_pub;
+    rclcpp::Publisher<direct_lidar_inertial_odometry::msg::DlioDiagnostics>::SharedPtr diagnostics_pub;
 
     // TF
     std::shared_ptr<tf2_ros::TransformBroadcaster> br;
@@ -190,6 +193,7 @@ private:
 
     std::vector<int> submap_kf_idx_curr;
     std::vector<int> submap_kf_idx_prev;
+    std::mutex submap_mutex;
 
     bool new_submap_is_ready;
     std::future<void> submap_future;
@@ -205,6 +209,10 @@ private:
     std::vector<double> comp_times;
     std::vector<double> imu_rates;
     std::vector<double> lidar_rates;
+    size_t raw_point_count_;
+    size_t cropped_point_count_;
+    size_t unique_point_timestamp_count_;
+    double scan_duration_;
 
     double first_scan_stamp;
     double elapsed_time;
@@ -312,6 +320,8 @@ private:
     std::string version_;
     int num_threads_;
     bool verbose;
+    double diagnostics_warn_translation_;
+    double diagnostics_warn_rotation_deg_;
 
     bool deskew_;
 

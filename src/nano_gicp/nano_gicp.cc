@@ -45,6 +45,10 @@
 #include "dlio/dlio.h"
 #include "nano_gicp/nano_gicp.h"
 
+#include <algorithm>
+#include <cmath>
+#include <numeric>
+
 template class nano_gicp::NanoGICP<PointType, PointType>;
 
 namespace nano_gicp {
@@ -60,6 +64,9 @@ NanoGICP<PointSource, PointTarget>::NanoGICP() {
   k_correspondences_ = 20;
   reg_name_ = "NanoGICP";
   corr_dist_threshold_ = std::numeric_limits<float>::max();
+  source_density_ = 0.f;
+  target_density_ = 0.f;
+  num_correspondences = 0;
 
   regularization_method_ = RegularizationMethod::PLANE;
 }
@@ -323,6 +330,28 @@ double NanoGICP<PointSource, PointTarget>::compute_error(const Eigen::Isometry3d
   }
 
   return sum_errors;
+}
+
+template <typename PointSource, typename PointTarget>
+void NanoGICP<PointSource, PointTarget>::getCorrespondenceDistanceStats(double& mean, double& p95) const {
+  std::vector<float> distances;
+  distances.reserve(sq_distances_.size());
+  for (size_t i = 0; i < sq_distances_.size(); ++i) {
+    if (correspondences_[i] >= 0) {
+      distances.push_back(std::sqrt(sq_distances_[i]));
+    }
+  }
+
+  if (distances.empty()) {
+    mean = 0.0;
+    p95 = 0.0;
+    return;
+  }
+
+  mean = std::accumulate(distances.begin(), distances.end(), 0.0) / distances.size();
+  const size_t p95_index = static_cast<size_t>(0.95 * static_cast<double>(distances.size() - 1));
+  std::nth_element(distances.begin(), distances.begin() + p95_index, distances.end());
+  p95 = distances[p95_index];
 }
 
 template <typename PointSource, typename PointTarget>

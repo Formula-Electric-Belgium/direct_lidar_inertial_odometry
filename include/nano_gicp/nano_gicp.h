@@ -114,6 +114,12 @@ public:
 
   virtual void update_correspondences(const Eigen::Isometry3d& trans);
 
+  double getMaxCorrespondenceDistance() const {
+    return corr_dist_threshold_;
+  }
+
+  void getCorrespondenceDistanceStats(double& mean, double& p95) const;
+
 protected:
   virtual void computeTransformation(PointCloudSource& output, const Matrix4& guess) override;
 
@@ -149,4 +155,3 @@ protected:
   std::vector<float> sq_distances_;
 };
 }  // namespace nano_gicp
-

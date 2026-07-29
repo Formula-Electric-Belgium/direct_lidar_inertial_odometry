@@ -1,0 +1,40 @@
+std_msgs/Header header
+
+uint32 raw_points
+uint32 cropped_points
+uint32 deskewed_points
+uint32 registration_points
+uint32 unique_point_timestamps
+uint32 imu_buffer_size
+float64 scan_duration
+bool deskew_success
+
+bool gicp_converged
+int32 gicp_iterations
+float64 gicp_error
+float64 gicp_error_per_correspondence
+uint32 correspondences
+float64 correspondence_ratio
+float64 mean_correspondence_distance
+float64 p95_correspondence_distance
+float64 source_density
+float64[6] hessian_eigenvalues
+float64 hessian_condition_number
+
+geometry_msgs/Transform correction
+float64 correction_translation_norm
+float64 correction_rotation_deg
+geometry_msgs/Pose imu_prior
+geometry_msgs/Pose lidar_pose
+geometry_msgs/Pose fused_pose
+geometry_msgs/Twist fused_twist
+geometry_msgs/Vector3 accel_bias
+geometry_msgs/Vector3 gyro_bias
+
+bool keyframe_created
+uint32 keyframe_count
+uint32 submap_keyframes
+uint32 submap_points
+float64 keyframe_distance_threshold
+float64 max_correspondence_distance
+float64 processing_time_ms

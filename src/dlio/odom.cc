@@ -13,6 +13,7 @@
 #include "dlio/odom.h"
 #include "dlio/utils.h"
 
+#include <Eigen/Eigenvalues>
 #include <queue>
 
 #include "rclcpp/qos.hpp"
@@ -54,6 +55,8 @@ dlio::OdomNode::OdomNode(const rclcpp::NodeOptions& options) : Node("dlio_odom_n
     this->kf_pose_pub = this->create_publisher<geometry_msgs::msg::PoseArray>("kf_pose", 1);
     this->kf_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("kf_cloud", 1);
     this->deskewed_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("deskewed", 1);
+    this->diagnostics_pub =
+        this->create_publisher<direct_lidar_inertial_odometry::msg::DlioDiagnostics>("diagnostics", 10);
 
     this->br = std::make_shared<tf2_ros::TransformBroadcaster>(*this);
 
@@ -100,6 +103,10 @@ dlio::OdomNode::OdomNode(const rclcpp::NodeOptions& options) : Node("dlio_odom_n
     this->first_scan_stamp = 0.;
     this->elapsed_time = 0.;
     this->length_traversed;
+    this->raw_point_count_ = 0;
+    this->cropped_point_count_ = 0;
+    this->unique_point_timestamp_count_ = 0;
+    this->scan_duration_ = 0.;
 
     this->convex_hull.setDimension(3);
     this->concave_hull.setDimension(3);
@@ -318,6 +325,8 @@ void dlio::OdomNode::getParams() {
     dlio::declare_param(this, "odom/geo/gbias_max", this->geo_gbias_max_, 1.0);
 
     dlio::declare_param(this, "verbose", this->verbose, true);
+    dlio::declare_param(this, "diagnostics/warnTranslation", this->diagnostics_warn_translation_, 2.0);
+    dlio::declare_param(this, "diagnostics/warnRotationDeg", this->diagnostics_warn_rotation_deg_, 45.0);
 }
 
 void dlio::OdomNode::start() {
@@ -509,6 +518,7 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedP
 
     pcl::PointCloud<PointType>::Ptr original_scan_ = std::make_shared<pcl::PointCloud<PointType>>();
     pcl::fromROSMsg(*pc, *original_scan_);
+    this->raw_point_count_ = original_scan_->size();
 
     // Remove NaNs
     std::vector<int> idx;
@@ -518,6 +528,7 @@ void dlio::OdomNode::getScanFromROS(const sensor_msgs::msg::PointCloud2::SharedP
     // Crop Box Filter
     this->crop.setInputCloud(original_scan_);
     this->crop.filter(*original_scan_);
+    this->cropped_point_count_ = original_scan_->size();
 
     this->scan_header_stamp = pc->header.stamp;
     this->original_scan = original_scan_;
@@ -537,6 +548,8 @@ void dlio::OdomNode::preprocessPoints() {
     } else {
 
         this->scan_stamp = rclcpp::Time(this->scan_header_stamp).seconds();
+        this->unique_point_timestamp_count_ = this->original_scan->empty() ? 0 : 1;
+        this->scan_duration_ = 0.;
 
         // don't process scans until IMU data is present
         if (!this->first_valid_scan) {
@@ -626,6 +639,8 @@ void dlio::OdomNode::deskewPointcloud() {
         unique_time_indices.push_back(it->index());
     }
     unique_time_indices.push_back(deskewed_scan_->points.size());
+    this->unique_point_timestamp_count_ = timestamps.size();
+    this->scan_duration_ = timestamps.empty() ? 0. : timestamps.back() - timestamps.front();
 
     int median_pt_index = timestamps.size() / 2;
     this->scan_stamp = timestamps[median_pt_index]; // set this->scan_stamp to the timestamp of the median point
@@ -771,8 +786,11 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::msg::PointCloud2::Sha
     // Get the next pose via IMU + S2M + GEO
     this->getNextPose();
 
+    const size_t keyframes_before = this->keyframes.size();
+
     // Update current keyframe poses and map
     this->updateKeyframes();
+    const bool keyframe_created = this->keyframes.size() > keyframes_before;
 
     // Build keyframe normals and submap if needed (and if we're not already waiting)
     if (this->new_submap_is_ready) {
@@ -805,8 +823,10 @@ void dlio::OdomNode::callbackPointCloud(const sensor_msgs::msg::PointCloud2::Sha
     this->publish_thread.detach();
 
     // Update some statistics
-    this->comp_times.push_back(this->now().seconds() - then);
+    const double processing_time = this->now().seconds() - then;
+    this->comp_times.push_back(processing_time);
     this->gicp_hasConverged = this->gicp.hasConverged();
+    this->publishDiagnostics(keyframe_created, processing_time);
 
     // Debug statements and publish custom DLIO message
     if (this->verbose) {
@@ -1709,8 +1729,11 @@ void dlio::OdomNode::buildSubmap(State vehicle_state) {
                                     std::begin(*(this->keyframe_normals[k])), std::end(*(this->keyframe_normals[k])));
         }
 
-        this->submap_cloud = submap_cloud_;
-        this->submap_normals = submap_normals_;
+        {
+            std::lock_guard<std::mutex> submap_lock(this->submap_mutex);
+            this->submap_cloud = submap_cloud_;
+            this->submap_normals = submap_normals_;
+        }
 
         // Pause to prevent stealing resources from the main loop if it is running.
         this->pauseSubmapBuildIfNeeded();
@@ -1718,7 +1741,10 @@ void dlio::OdomNode::buildSubmap(State vehicle_state) {
         this->gicp_temp.setInputTarget(this->submap_cloud);
         this->submap_kdtree = this->gicp_temp.target_kdtree_;
 
-        this->submap_kf_idx_prev = this->submap_kf_idx_curr;
+        {
+            std::lock_guard<std::mutex> submap_lock(this->submap_mutex);
+            this->submap_kf_idx_prev = this->submap_kf_idx_curr;
+        }
     }
 }
 
@@ -1763,6 +1789,130 @@ void dlio::OdomNode::buildKeyframesAndSubmap(State vehicle_state) {
 void dlio::OdomNode::pauseSubmapBuildIfNeeded() {
     std::unique_lock<decltype(this->main_loop_running_mutex)> lock(this->main_loop_running_mutex);
     this->submap_build_cv.wait(lock, [this] { return !this->main_loop_running; });
+}
+
+void dlio::OdomNode::publishDiagnostics(bool keyframe_created, double processing_time) {
+    using Diagnostics = direct_lidar_inertial_odometry::msg::DlioDiagnostics;
+    Diagnostics msg;
+    msg.header.stamp = this->scan_header_stamp;
+    msg.header.frame_id = this->odom_frame;
+
+    msg.raw_points = this->raw_point_count_;
+    msg.cropped_points = this->cropped_point_count_;
+    msg.deskewed_points = this->deskewed_scan->size();
+    msg.registration_points = this->current_scan->size();
+    msg.unique_point_timestamps = this->unique_point_timestamp_count_;
+    {
+        std::lock_guard<std::mutex> imu_lock(this->mtx_imu);
+        msg.imu_buffer_size = this->imu_buffer.size();
+    }
+    msg.scan_duration = this->scan_duration_;
+    msg.deskew_success = this->deskew_status;
+
+    msg.gicp_converged = this->gicp.hasConverged();
+    msg.gicp_iterations = this->gicp.getFinalNumIteration();
+    msg.gicp_error = this->gicp.getFinalError();
+    msg.correspondences = std::max(0, this->gicp.num_correspondences);
+    msg.gicp_error_per_correspondence =
+        msg.correspondences == 0 ? 0. : msg.gicp_error / msg.correspondences;
+    msg.correspondence_ratio =
+        this->current_scan->empty() ? 0. : static_cast<double>(msg.correspondences) / this->current_scan->size();
+    this->gicp.getCorrespondenceDistanceStats(
+        msg.mean_correspondence_distance, msg.p95_correspondence_distance);
+    msg.source_density = this->gicp.source_density_;
+
+    const Eigen::Matrix<double, 6, 6>& hessian = this->gicp.getFinalHessian();
+    Eigen::SelfAdjointEigenSolver<Eigen::Matrix<double, 6, 6>> eigensolver(hessian);
+    if (eigensolver.info() == Eigen::Success) {
+        const Eigen::Matrix<double, 6, 1> eigenvalues = eigensolver.eigenvalues();
+        for (size_t i = 0; i < msg.hessian_eigenvalues.size(); ++i) {
+            msg.hessian_eigenvalues[i] = eigenvalues[i];
+        }
+        const auto absolute_eigenvalues = eigenvalues.cwiseAbs();
+        const double smallest = std::max(absolute_eigenvalues.minCoeff(), 1e-12);
+        msg.hessian_condition_number = absolute_eigenvalues.maxCoeff() / smallest;
+    } else {
+        msg.hessian_eigenvalues.fill(std::numeric_limits<double>::quiet_NaN());
+        msg.hessian_condition_number = std::numeric_limits<double>::infinity();
+    }
+
+    Eigen::Quaternionf correction_q(this->T_corr.block<3, 3>(0, 0));
+    correction_q.normalize();
+    msg.correction.translation.x = this->T_corr(0, 3);
+    msg.correction.translation.y = this->T_corr(1, 3);
+    msg.correction.translation.z = this->T_corr(2, 3);
+    msg.correction.rotation.w = correction_q.w();
+    msg.correction.rotation.x = correction_q.x();
+    msg.correction.rotation.y = correction_q.y();
+    msg.correction.rotation.z = correction_q.z();
+    msg.correction_translation_norm = this->T_corr.block<3, 1>(0, 3).norm();
+    msg.correction_rotation_deg =
+        2. * std::acos(std::min(1.f, std::abs(correction_q.w()))) * 180. / M_PI;
+
+    const auto set_pose = [](geometry_msgs::msg::Pose& pose, const Eigen::Vector3f& p,
+                             const Eigen::Quaternionf& q) {
+        pose.position.x = p.x();
+        pose.position.y = p.y();
+        pose.position.z = p.z();
+        pose.orientation.w = q.w();
+        pose.orientation.x = q.x();
+        pose.orientation.y = q.y();
+        pose.orientation.z = q.z();
+    };
+
+    Eigen::Vector3f prior_p = this->T_prior.block<3, 1>(0, 3);
+    Eigen::Quaternionf prior_q(this->T_prior.block<3, 3>(0, 0));
+    prior_q.normalize();
+    set_pose(msg.imu_prior, prior_p, prior_q);
+    set_pose(msg.lidar_pose, this->lidarPose.p, this->lidarPose.q);
+    set_pose(msg.fused_pose, this->state.p, this->state.q);
+
+    msg.fused_twist.linear.x = this->state.v.lin.w.x();
+    msg.fused_twist.linear.y = this->state.v.lin.w.y();
+    msg.fused_twist.linear.z = this->state.v.lin.w.z();
+    msg.fused_twist.angular.x = this->state.v.ang.b.x();
+    msg.fused_twist.angular.y = this->state.v.ang.b.y();
+    msg.fused_twist.angular.z = this->state.v.ang.b.z();
+    msg.accel_bias.x = this->state.b.accel.x();
+    msg.accel_bias.y = this->state.b.accel.y();
+    msg.accel_bias.z = this->state.b.accel.z();
+    msg.gyro_bias.x = this->state.b.gyro.x();
+    msg.gyro_bias.y = this->state.b.gyro.y();
+    msg.gyro_bias.z = this->state.b.gyro.z();
+
+    msg.keyframe_created = keyframe_created;
+    msg.keyframe_count = this->keyframes.size();
+    {
+        std::lock_guard<std::mutex> submap_lock(this->submap_mutex);
+        msg.submap_keyframes = this->submap_kf_idx_prev.size();
+        msg.submap_points = this->submap_cloud->size();
+    }
+    msg.keyframe_distance_threshold = this->keyframe_thresh_dist_;
+    msg.max_correspondence_distance = this->gicp.getMaxCorrespondenceDistance();
+    msg.processing_time_ms = processing_time * 1000.;
+
+    this->diagnostics_pub->publish(msg);
+
+    if (!msg.gicp_converged) {
+        RCLCPP_WARN_THROTTLE(
+            this->get_logger(), *this->get_clock(), 2000,
+            "GICP did not converge (error=%.3f, correspondences=%u/%u)",
+            msg.gicp_error, msg.correspondences, msg.registration_points);
+    }
+    if (!std::isfinite(msg.gicp_error) ||
+        !std::isfinite(msg.correction_translation_norm) ||
+        !std::isfinite(msg.correction_rotation_deg)) {
+        RCLCPP_ERROR_THROTTLE(
+            this->get_logger(), *this->get_clock(), 2000,
+            "Non-finite GICP diagnostics detected");
+    } else if (msg.correction_translation_norm > this->diagnostics_warn_translation_ ||
+               msg.correction_rotation_deg > this->diagnostics_warn_rotation_deg_) {
+        RCLCPP_WARN_THROTTLE(
+            this->get_logger(), *this->get_clock(), 2000,
+            "Large GICP correction: %.2f m, %.1f deg (error=%.3f, correspondences=%u/%u)",
+            msg.correction_translation_norm, msg.correction_rotation_deg,
+            msg.gicp_error, msg.correspondences, msg.registration_points);
+    }
 }
 
 void dlio::OdomNode::debug() {

@@ -134,6 +134,9 @@ public:
 
   const Eigen::Matrix<double, 6, 6>& getFinalHessian() const;
   double getFinalError() const;
+  int getFinalNumIteration() const {
+    return nr_iterations_;
+  }
 
   virtual void swapSourceAndTarget() {}
   virtual void clearSource() {}
