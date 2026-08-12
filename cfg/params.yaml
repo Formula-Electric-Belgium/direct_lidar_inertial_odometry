@@ -42,12 +42,12 @@
     odom/keyframe/threshD: 1.0
     odom/keyframe/threshR: 22.5
 
-    odom/submap/keyframe/knn: 10
-    odom/submap/keyframe/kcv: 10
-    odom/submap/keyframe/kcc: 10
+    odom/submap/keyframe/knn: 20
+    odom/submap/keyframe/kcv: 20
+    odom/submap/keyframe/kcc: 20
     odom/gicp/minNumPoints: 64
-    odom/gicp/kCorrespondences: 16
-    odom/gicp/maxCorrespondenceDistance: 0.5
+    odom/gicp/kCorrespondences: 64
+    odom/gicp/maxCorrespondenceDistance: 1.0
     odom/gicp/maxIterations: 32
     odom/gicp/transformationEpsilon: 0.01
     odom/gicp/rotationEpsilon: 0.01
