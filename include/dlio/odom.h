@@ -318,6 +318,12 @@ private:
     double gravity_;
 
     bool time_offset_;
+    
+    // Manual IMU-to-LiDAR time offset (seconds).
+    // Positive  → IMU timestamps are ahead of LiDAR (shift IMU stamps back).
+    // Negative  → LiDAR timestamps are ahead of IMU (shift IMU stamps forward).
+    // Measure with estimate_time_offset.py and set via dlio/imu/timeOffset.
+    double imu_time_offset_sec_;
 
     bool adaptive_params_;
 

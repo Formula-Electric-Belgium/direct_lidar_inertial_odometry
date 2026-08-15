@@ -201,6 +201,14 @@ void dlio::OdomNode::getParams() {
     // Compute time offset between lidar and imu
     dlio::declare_param(this, "odom/computeTimeOffset", this->time_offset_, false);
 
+    // Manual IMU-to-LiDAR time offset in seconds.
+    // Use estimate_time_offset.py to measure this value from a bag file.
+    // Positive = IMU is ahead of LiDAR; Negative = LiDAR is ahead of IMU.
+    dlio::declare_param(this, "timeOffset", this->imu_time_offset_sec_, 0.0);
+    if (this->imu_time_offset_sec_ != 0.0) {
+        RCLCPP_INFO(this->get_logger(), "IMU time offset: %.4f ms", this->imu_time_offset_sec_ * 1000.0);
+    }
+
     // Keyframe Threshold
     dlio::declare_param(this, "odom/keyframe/threshD", this->keyframe_thresh_dist_, 0.1);
     dlio::declare_param(this, "odom/keyframe/threshR", this->keyframe_thresh_rot_, 1.0);
@@ -823,6 +831,13 @@ void dlio::OdomNode::callbackImu(const sensor_msgs::msg::Imu::SharedPtr imu_raw)
     this->first_imu_received = true;
 
     sensor_msgs::msg::Imu::SharedPtr imu = this->transformImu(imu_raw);
+    
+    // Apply manual IMU-to-LiDAR time offset.
+    // Shifting the IMU stamp by -offset brings it into the LiDAR time domain.
+    if (this->imu_time_offset_sec_ != 0.0) {
+        imu->header.stamp = rclcpp::Time(imu->header.stamp) - rclcpp::Duration::from_seconds(this->imu_time_offset_sec_);
+    }
+
     this->imu_stamp = imu->header.stamp;
     double imu_stamp_secs = rclcpp::Time(imu->header.stamp).seconds();
 

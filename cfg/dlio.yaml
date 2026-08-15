@@ -21,6 +21,15 @@
     pointcloud/voxelize: true
 
     imu/calibration: true
+
+    # Manual IMU-to-LiDAR time offset in seconds.
+    # Measure with estimate_time_offset.py on a bag with aggressive motion.
+    # Positive  = IMU timestamps are ahead of LiDAR (common with software-stamped IMU
+    #             and hardware-stamped LiDAR).
+    # Negative  = LiDAR timestamps are ahead of IMU.
+    # Set to 0.0 to disable.
+    timeOffset: 0.005062
+
     imu/intrinsics/accel/bias: [ 0.0, 0.0, 0.0 ]
     imu/intrinsics/accel/sm:   [ 1.,  0.,  0.,
                                  0.,  1.,  0.,
