@@ -15,7 +15,7 @@
 int main(int argc, char** argv) {
 
   rclcpp::init(argc, argv);
-  auto node = std::make_shared<dlio::OdomNode>();
+  auto node = std::make_shared<dlio::OdomNode>(rclcpp::NodeOptions{});
   rclcpp::executors::MultiThreadedExecutor executor;
   executor.add_node(node);
   executor.spin();
@@ -25,3 +25,7 @@ int main(int argc, char** argv) {
   return 0;
 
 }
+
+#include <rclcpp_components/register_node_macro.hpp>
+
+RCLCPP_COMPONENTS_REGISTER_NODE(dlio::OdomNode)
